@@ -1,0 +1,42 @@
+Skip to main content
+
+Back to top
+
+
+Tile IR
+
+
+
+
+
+Tile IR
+
+
+Table of Contents
+	•	1. Introduction
+	•	2. Release Notes
+	•	3. Programming Model
+	•	4. Syntax
+	•	5. Binary Format
+	•	6. Type System
+	•	7. Semantics
+	•	8. Memory Model
+	•	9. Operations
+	•	10. Debug Info
+	•	11. Stability
+	•	12. Optimization Guide
+	•	13. Appendix
+
+
+
+Tile IR#
+This document provides the comprehensive specification for Tile IR, a portable, low-level tile virtual machine and instruction set that models the GPU as a tile-based processor. Unlike the traditional SIMT machine model, Tile IR enables native programming of hardware in terms of tiles (multi-dimensional array fragments).
+Tile IR offers a high-level yet explicit target for code generation that abstracts away generation-specific hardware details while exposing the massive parallelism of the GPU for next-generation compute frameworks in a stable and versioned manner. This document is tailored for users building or debugging systems that produce Tile IR bytecode, covering the Tile IR programming model, syntax, type system, semantics, binary bytecode format, and memory consistency model.
+
+next
+1. Introduction
+
+
+ 
+Privacy Policy | Your Privacy Choices | Terms of Service | Accessibility | Corporate Policies | Product Security | Contact
+Copyright © 2025-2026 NVIDIA Corporation. 

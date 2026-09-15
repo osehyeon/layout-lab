@@ -1,0 +1,761 @@
+   ThinkSystem NVIDIA HGX B200 180GB 1000W GPU
+   Product Guide
+
+   The NVIDIA Blackwell HGX B200 platform propels the data center into a new era of accelerating computing
+   and generative AI, integrating NVIDIA Blackwell GPUs with high-speed interconnect to accelerate AI
+   performance at scale. As a premier accelerated scale-up x86 platform with up to 15X faster real-time
+   inference performance compared to NVIDIA H100, with 12X lower cost and 12X less energy, the B200
+   platform is designed for the most demanding AI, data analytics, and high-performance computing (HPC)
+   workloads.
+   The NVIDIA B200 180GB 1000W GPU is offered in the SXM6 form factor, where GPU modules are
+   implemented with a fully-connected NVLink topology in supported ThinkSystem servers. In the ThinkSystem
+   SR780a V3, the HGX B200 GPUs are water-cooled using Lenovo Neptune water cooling. In the SR680a V3,
+   the GPUs are air-cooled.
+
+
+
+
+   Figure 1. ThinkSystem NVIDIA HGX B200 1000W 180GB 8-GPU Liquid-Cooled Board
+
+
+   Did you know?
+   HGX B200 supports NVIDIA advanced networking options to deliver the highest AI performance. In the
+   Lenovo ThinkSystem SR780a V3, the B200 GPUs can be paired with 8x NVIDIA BlueField-3 B3140H VPI
+   400GbE adapters or 8x NVIDIA ConnectX-7 NDR OSFP400 InfiniBand adapters.
+
+
+
+
+                                     Click here to check for updates
+
+
+ThinkSystem NVIDIA HGX B200 180GB 1000W GPU                                                                  1
+   Part number information
+
+   The following table shows the ordering information.
+
+   Table 1. Ordering information
+
+    Part       Feature                                             NVIDIA part    Includes    Controlled GPU
+    number     code        Description                             number         NVAIE       status
+    HGX form factor GPUs
+    CTO only   C696        ThinkSystem NVIDIA HGX B200 1000W       935-26287-     No          Controlled
+                           180GB 8-GPU Liquid-Cooled Board         27A1-000
+    CTO only   C519        ThinkSystem NVIDIA HGX B200 180GB       935-26287-     No          Controlled
+                           1000W 8-GPU Board                       27A0-000
+
+
+   The NVIDIA B200 GPU is Controlled which means the GPU is not offered in certain markets, as determined
+   by the US Government.
+
+
+   Features
+   Real-Time Large Language Model Inference
+   As part of HGX, the Blackwell GPU’s cutting-edge capabilities with the second generation Transformer
+   Engine mark a massive leap forward in accelerating inference workloads, making real-time performance a
+   possibility for resource-intensive multi-trillion-parameter language models. HGX B200 achieves 15X
+   acceleration, 12X lower cost, and 12X less energy than the H100 HGX GPU for massive models such as the
+   GPT-MoE-1.8T. This advancement is made possible with a new generation of Tensor Cores, which introduce
+   new precisions including FP4.
+   Supercharged AI Training
+   Blackwell GPUs include a faster second generation Transformer Engine featuring FP8 precision, enabling a
+   remarkable 3X faster training for large language models like GPT-MoE-1.8T compared to the H100 HGX
+   GPU. This breakthrough is complemented by the fifth-generation NVLink, which provides 1.8TB/s of GPU-to-
+   GPU interconnect, InfiniBand networking, and Magnum IO software. Together, these ensure efficient
+   scalability for enterprises and extensive GPU computing clusters.
+   Advancing Data Analytics
+   Databases and Apache Spark play critical roles in handling, processing, and analyzing large volumes of data
+   for data analytics. Blackwell’s new dedicated Decompression Engine accelerates the full pipeline of database
+   queries for the highest performance in data analytics and data science. With support for the latest
+   compression formats such as LZ4, Snappy, and Deflate, HGX B200 GPU performs 6X faster than CPUs and
+   2X faster than H100 for query benchmarks.
+   Sustainable Computing
+   By adopting sustainable computing practices, data centers can lower their carbon footprint and energy
+   consumption while improving their bottom line. The goal of sustainable computing can be realized with
+   efficiency gains using accelerated computing with HGX. For LLM inference performance, HGX B200
+   improves energy efficiency by 12X and lowers costs by 12X compared to H100.
+
+
+
+
+ThinkSystem NVIDIA HGX B200 180GB 1000W GPU                                                                       2
+   Technical specifications
+   The following table lists the NVIDIA B200 GPU specifications.
+
+
+   Table 2. GPU specifications
+
+    Specification                                             NVIDIA HGX B200
+    Form Factor                                               SXM6
+    FP64                                                      37 teraFLOPS
+    FP64 Tensor Core                                          37 teraFLOPS
+    FP32                                                      75 teraFLOPS
+    TF32 Tensor Core                                          1.1 / 2.2 petaFLOPS*
+    BFLOAT16 Tensor                                           2.25 / 4.5 petaFLOPS*
+    FP16 Tensor Core                                          2.25 / 4.5 petaFLOPS*
+    FP8 Tensor Core                                           4.5 / 9 petaFLOPS*
+    INT8 Tensor Core                                          4.5 / 9 petaOPS*
+    FP4 Tensor Core                                           9 / 18 petaFLOPS*
+    GPU Memory                                                180 GB HBM3e
+    GPU Memory Bandwidth                                      7.7 TB/s
+    Total Graphics Power (TGP)                                1000W
+    Multi-Instance GPUs                                       Up to 7 MIGs @ 23 GB
+    Interconnect                                              NVLink: 900 GB/s
+                                                              PCIe Gen5: 128 GB/s
+   * Without / with structural sparsity enabled
+
+
+
+
+ThinkSystem NVIDIA HGX B200 180GB 1000W GPU                                           3
+   Server support
+   The following tables list the ThinkSystem servers that are compatible.
+
+
+   Table 3. Server support - Current servers (Part 1 of 2)
+
+                                                                                                                                                                                                4S 8S Intel
+                                                                    AMD V3               2S Intel V3/V4                                                         1S V3                             V3/V4
+
+                                                                                SR645 V3 (7D9D / 7D9C)
+                                                                                                                                                                ST50 V3 (7DF4 / 7DF3)
+
+
+                                                       SR635 V3 (7D9H / 7D9G)
+                                                                                SR665 V3 (7D9B / 7D9A)
+
+
+
+
+                                                                                                                                        ST45 V3 (7DH4 / 7DH5)
+                                                                                                                                                                ST250 V3 (7DCF / 7DCE)
+                                                                                SD535 V3 (7DD8 / 7DD1)
+                                                                                                                                                                SR250 V3 (7DCM / 7DCL)
+                                                                                ST650 V3 (7D7B / 7D7A)
+                                                                                SR630 V3 (7D72 / 7D73)                                                          SR850 V3 (7D97 / 7D96)
+                                                                                SR650 V3 (7D75 / 7D76)                                                          SR860 V3 (7D94 / 7D93)
+
+
+                                                       SR655 V3 (7D9F / 7D9E)
+                                                                                SR630 V4 (7DG8 / 7DG9)                                                          SR950 V3 (7DC5 / 7DC4)
+
+    Part                                                                        SR650 V4 (7DGC / 7DGD)                                                          SR850 V4 (7DJT / 7DJS)
+    Number     Description                                                      SR650a V4 (7DGC / 7DGD)                                                         SR860 V4 (7DJQ / 7DJN)
+    C696       ThinkSystem NVIDIA HGX B200 1000W        N N N N N N N N N N N N N N N N N N N N
+               180GB 8-GPU Liquid-Cooled Board
+    C519       ThinkSystem NVIDIA HGX B200 180GB        N N N N N N N N N N N N N N N N N N N N
+               1000W 8-GPU Board
+
+
+   Table 4. Server support - Current servers (Part 2 of 2)
+
+                                                                                                                                                                                   Super
+                                                                                                                      AI Servers                                            Edge computing
+
+
+
+
+                                                                                                  SR675 V3 (7D9Q / 7D9R)
+                                                                                                                           SR680a V3 B200 (7DM9)                SR780a V3 (7DJ5)
+
+
+
+
+                                                                                                                                                                                   SE455 V3 (7DBY)   SC750 V4 (7DDJ)   SC777 V4 (7DKA)   SD665 V3 (7D9P)
+                                                                                                                                                                SR680a V4 (7DMK)
+
+    Part                                                                                                                   SR685a V3 (7DHC)                     SE100 (7DGR)
+    Number       Description
+    C696         ThinkSystem NVIDIA HGX B200 1000W 180GB 8-GPU Liquid-                                N N N 1 N N N                                                                                        N                 N                N
+                 Cooled Board
+    C519         ThinkSystem NVIDIA HGX B200 180GB 1000W 8-GPU Board                                  N 1 N N N N N                                                                                        N                 N                N
+
+
+
+
+   Operating system support
+   For SXM GPUs, operating system support is based on that of the supported servers. For details, see the
+   following product guides:
+
+           SR780a V3: https://lenovopress.lenovo.com/lp1980-thinksystem-sr780a-v3-server
+           SR680a V3: https://lenovopress.lenovo.com/lp2247-lenovo-thinksystem-sr680a-v3-with-b200
+
+
+
+
+ThinkSystem NVIDIA HGX B200 180GB 1000W GPU                                                                                                                                                                                                                4
+   NVIDIA GPU software
+   This section lists the NVIDIA software that is available from Lenovo.
+          NVIDIA Enterprise Software
+          NVIDIA HPC Compiler Software
+
+   NVIDIA Enterprise Software
+   Lenovo offers the NVIDIA Enterprise cloud-native enterprise software, comprised of NVIDIA AI Enterprise
+   (NVAIE) and NVIDIA Omniverse Enterprise. NVIDIA Enterprise is an end-to-end, cloud-native suite of AI and
+   data analytics software, optimized, certified, and supported by NVIDIA to run on VMware vSphere and bare-
+   metal with NVIDIA-Certified Systems™. It includes key enabling technologies from NVIDIA for rapid
+   deployment, management, and scaling of AI workloads in the modern hybrid cloud.
+   NVIDIA Enterprise is licensed on a per-GPU basis. NVIDIA Enterprise products can be purchased as either a
+   perpetual license with support services, or as an annual or multi-year subscription.
+          The perpetual license provides the right to use the NVIDIA Enterprise software indefinitely, with no
+          expiration. NVIDIA Enterprise with perpetual licenses must be purchased in conjunction with one-year,
+          three-year, or five-year support services. A one-year support service is also available for renewals.
+          The subscription offerings are an affordable option to allow IT departments to better manage the
+          flexibility of license volumes. NVIDIA Enterprise software products with subscription includes support
+          services for the duration of the software’s subscription license
+   The following table lists NVIDIA Enterprise license part numbers and feature codes.
+   For more information, see the NVIDIA Enterprise Sizing Guide.
+
+   Table 8. NVIDIA Enterprise Software
+
+                     Feature code
+    Part number      7S02CTO1WW          Description                                               NVIDIA part number
+    AI Enterprise Perpetual License
+    7S02001BWW       S6YY                NVIDIA Enterprise (NVIDIA AI Enterprise and NVIDIA        731-AI7004+P3CMI60
+                                         Omniverse Enterprise) Perpetual License & Support per
+                                         GPU, 5 Years
+    7S02001EWW       S6Z1                NVIDIA Enterprise (NVIDIA AI Enterprise and NVIDIA        731-AI7004+P3EDI60
+                                         Omniverse Enterprise) Perpetual License & Support per
+                                         GPU, EDU, 5 Years
+    AI Enterprise Subscription License
+    7S02001FWW       S6Z2                NVIDIA Enterprise (NVIDIA AI Enterprise and NVIDIA        731-AI7003+P3CMI12
+                                         Omniverse Enterprise) Subscription per GPU, 1 Year
+    7S02005XWW       SENY                NVIDIA Enterprise (NVIDIA AI Enterprise and NVIDIA        731-AI7003+P3CMI24
+                                         Omniverse Enterprise) Subscription per GPU, 2 Years
+    7S02001GWW       S6Z3                NVIDIA Enterprise (NVIDIA AI Enterprise and NVIDIA        731-AI7003+P3CMI36
+                                         Omniverse Enterprise) Subscription per GPU, 3 Year
+    7S02005YWW       SENZ                NVIDIA Enterprise (NVIDIA AI Enterprise and NVIDIA        731-AI7003+P3CMI48
+                                         Omniverse Enterprise) Subscription per GPU, 4 Years
+    7S02001HWW       S6Z4                NVIDIA Enterprise (NVIDIA AI Enterprise and NVIDIA        731-AI7003+P3CMI60
+                                         Omniverse Enterprise) Subscription per GPU, 5 Year
+    7S02001JWW       S6Z5                NVIDIA Enterprise (NVIDIA AI Enterprise and NVIDIA        731-AI7003+P3EDI12
+                                         Omniverse Enterprise) Subscription per GPU, EDU, 1 Year
+    7S02005ZWW       SEP0                NVIDIA Enterprise (NVIDIA AI Enterprise and NVIDIA       731-AI7003+P3EDI24
+                                         Omniverse Enterprise) Subscription per GPU, EDU, 2 Years
+
+
+
+
+ThinkSystem NVIDIA HGX B200 180GB 1000W GPU                                                                             5
+                      Feature code
+    Part number       7S02CTO1WW        Description                                                NVIDIA part number
+    7S02001KWW        S6Z6              NVIDIA Enterprise (NVIDIA AI Enterprise and NVIDIA         731-AI7003+P3EDI36
+                                        Omniverse Enterprise) Subscription per GPU, EDU, 3 Year
+    7S020060WW        SEP1              NVIDIA Enterprise (NVIDIA AI Enterprise and NVIDIA       731-AI7003+P3EDI48
+                                        Omniverse Enterprise) Subscription per GPU, EDU, 4 Years
+    7S02001LWW        S6Z7              NVIDIA Enterprise (NVIDIA AI Enterprise and NVIDIA         731-AI7003+P3EDI60
+                                        Omniverse Enterprise) Subscription per GPU, EDU, 5 Year
+    Business Critical Support Services for NVIDIA Enterprise
+    7S02001MWW        S6Z8              Business Critical Support Services for NVIDIA Enterprise   731-AI7007+P3CMI12
+                                        (NVIDIA AI Enterprise and Omniverse Enterprise) per GPU,
+                                        1 Year
+    7S02001NWW        S6Z9              Business Critical Support Services for NVIDIA Enterprise   731-AI7007+P3CMI36
+                                        (NVIDIA AI Enterprise and Omniverse Enterprise) per GPU,
+                                        3 Year
+    7S020061WW        SEP2              Business Critical Support Services for NVIDIA Enterprise   731-AI7007+P3CMI48
+                                        (NVIDIA AI Enterprise and Omniverse Enterprise) per GPU,
+                                        4 Years
+    7S02001PWW        S6ZA              Business Critical Support Services for NVIDIA Enterprise   731-AI7007+P3CMI60
+                                        (NVIDIA AI Enterprise and Omniverse Enterprise) per GPU,
+                                        5 Year
+    7S02001QWW        S6ZB              Business Critical Support Services for NVIDIA Enterprise   731-AI7007+P3EDI12
+                                        (NVIDIA AI Enterprise and Omniverse Enterprise) per GPU,
+                                        EDU, 1 Year
+    7S02001RWW        S6ZC              Business Critical Support Services for NVIDIA Enterprise   731-AI7007+P3EDI36
+                                        (NVIDIA AI Enterprise and Omniverse Enterprise) per GPU,
+                                        EDU, 3 Year
+    7S020062WW        SEP3              Business Critical Support Services for NVIDIA Enterprise   731-AI7007+P3EDI48
+                                        (NVIDIA AI Enterprise and Omniverse Enterprise) per GPU,
+                                        EDU, 4 Years
+    7S02001SWW        S6ZD              Business Critical Support Services for NVIDIA Enterprise   731-AI7007+P3EDI60
+                                        (NVIDIA AI Enterprise and Omniverse Enterprise) per GPU,
+                                        EDU, 5 Year
+
+
+   NVIDIA HPC Compiler Software
+
+   Table 9. NVIDIA HPC Compiler
+
+                      Feature code
+    Part number       7S09CTO6WW        Description
+    HPC Compiler Support Services
+    7S090014WW        S924              NVIDIA HPC Compiler Support Services, 1 Year
+    7S090015WW        S925              NVIDIA HPC Compiler Support Services, 3 Years
+    7S09002GWW        S9UQ              NVIDIA HPC Compiler Support Services, 5 Years
+    7S090016WW        S926              NVIDIA HPC Compiler Support Services, EDU, 1 Year
+    7S090017WW        S927              NVIDIA HPC Compiler Support Services, EDU, 3 Years
+    7S09002HWW        S9UR              NVIDIA HPC Compiler Support Services, EDU, 5 Years
+    7S090018WW        S928              NVIDIA HPC Compiler Support Services - Additional Contact, 1 Year
+    7S09002JWW        S9US              NVIDIA HPC Compiler Support Services - Additional Contact, 3 Years
+    7S09002KWW        S9UT              NVIDIA HPC Compiler Support Services - Additional Contact, 5 Years
+    7S090019WW        S929              NVIDIA HPC Compiler Support Services - Additional Contact, EDU, 1 Year
+
+
+
+
+ThinkSystem NVIDIA HGX B200 180GB 1000W GPU                                                                             6
+                    Feature code
+    Part number     7S09CTO6WW       Description
+    7S09002LWW      S9UU             NVIDIA HPC Compiler Support Services - Additional Contact, EDU, 3 Years
+    7S09002MWW      S9UV             NVIDIA HPC Compiler Support Services - Additional Contact, EDU, 5 Years
+    HPC Compiler Premier Support Services
+    7S09001AWW      S92A             NVIDIA HPC Compiler Premier Support Services, 1 Year
+    7S09002NWW      S9UW             NVIDIA HPC Compiler Premier Support Services, 3 Years
+    7S09002PWW      S9UX             NVIDIA HPC Compiler Premier Support Services, 5 Years
+    7S09001BWW      S92B             NVIDIA HPC Compiler Premier Support Services, EDU, 1 Year
+    7S09002QWW      S9UY             NVIDIA HPC Compiler Premier Support Services, EDU, 3 Years
+    7S09002RWW      S9UZ             NVIDIA HPC Compiler Premier Support Services, EDU, 5 Years
+    7S09001CWW      S92C             NVIDIA HPC Compiler Premier Support Services - Additional Contact, 1 Year
+    7S09002SWW      S9V0             NVIDIA HPC Compiler Premier Support Services - Additional Contact, 3 Years
+    7S09002TWW      S9V1             NVIDIA HPC Compiler Premier Support Services - Additional Contact, 5 Years
+    7S09001DWW      S92D             NVIDIA HPC Compiler Premier Support Services - Additional Contact, EDU, 1 Year
+    7S09002UWW      S9V2             NVIDIA HPC Compiler Premier Support Services - Additional Contact, EDU, 3
+                                     Years
+    7S09002VWW      S9V3             NVIDIA HPC Compiler Premier Support Services - Additional Contact, EDU, 5
+                                     Years
+
+
+   Regulatory approvals
+   The NVIDIA B200 GPU has the following regulatory approvals:
+         RCM
+         BSMI
+         CE
+         FCC
+         ICES
+         KCC
+         cUL, UL
+         VCCI
+
+
+   Warranty
+   The NVIDIA B200 GPU assumes the server’s base warranty and any warranty upgrades.
+
+
+
+
+ThinkSystem NVIDIA HGX B200 180GB 1000W GPU                                                                           7
+   Seller training courses
+   The following sales training courses are offered for employees and partners (login required). Courses are
+   listed in date order.
+
+       1. Think AI Weekly: Accelerating your Server Sales with the RTX Pro 6000
+          2026-03-10 | 29 minutes | Employees Only
+
+         Join this session as Simone Larsson, Head of Enterprise AI, EMEA, Lenovo and Jason Knudsen, GAM,
+         Global Sales and Channel for Lenovo with NVIDIA as they talk about the RTX Pro 6000.
+
+         Topics include:
+
+         Market trends
+         Why the RTX Pro 6000 matters
+         Lenovo GTM details
+         Published: 2026-03-10
+         Length: 29 minutes
+
+           Start the training:
+           Employee link: Grow@Lenovo
+
+         Course code: DTAIW165
+       2. Edge VTT - NVIDIA Robotics Platform
+          2026-01-08 | 67 minutes | Employees Only
+
+         In this session we feature speakers from both NVIDIA and Lenovo. Attendees will learn about NVIDIA’s
+         platform stack for Robotics and what Lenovo is doing in the field of robotics.
+
+         During this session we will dive into NVIDIA’s three-computer stack for Physical AI. Our speaker will
+         explore libraries and workflows to develop, train, simulate, deploy, operate, and optimize AI robot
+         systems and software. This session will cover the basics of the technical platform, how to get started
+         and case studies from some NVIDIA's ecosystem.
+
+         Objectives:
+         Discuss acceleration libraries
+         Describe simulation workflows
+         List foundational models for robotics
+
+         Tags: Artificial Intelligence (AI), Sales, Software Platforms, Technical Sales
+         Published: 2026-01-08
+         Length: 67 minutes
+
+           Start the training:
+           Employee link: Grow@Lenovo
+
+         Course code: DVEDG223
+
+
+
+
+ThinkSystem NVIDIA HGX B200 180GB 1000W GPU                                                                       8
+       3. Lenovo VTT Cloud Architecture: Empowering AI Innovation with NVIDIA RTX Pro 6000 and
+          Lenovo Hybrid AI Services
+          2025-09-18 | 68 minutes | Employees Only
+
+         Join Dinesh Tripathi, Lenovo Technical Team Lead for GenAI and Jose Carlos Huescas, Lenovo HPC &
+         AI Product Manager for an in-depth, interactive technical webinar. This session will explore how to
+         effectively position the NVIDIA RTX PRO 6000 Blackwell Server Edition in AI and visualization
+         workflows, with a focus on real-world applications and customer value.
+         We’ll cover:
+         - NVIDIA RTX PRO 6000 Blackwell Overview: Key specs, performance benchmarks, and use cases in
+         AI, rendering, and simulation.
+         - Positioning Strategy: How to align NVIDIA RTX PRO 6000 with customer needs across industries like
+         healthcare, manufacturing, and media.
+         - Lenovo Hybrid AI 285 Services: Dive into Lenovo’s Hybrid AI 285 architecture and learn how it
+         supports scalable AI deployments from edge to cloud.
+         Whether you're enabling AI solutions or guiding customers through infrastructure decisions, this
+         session will equip you with the insights and tools to drive impactful conversations.
+
+         Tags: Industry solutions, SMB, Services, Technical Sales, Technology solutions
+         Published: 2025-09-18
+         Length: 68 minutes
+
+          Start the training:
+          Employee link: Grow@Lenovo
+
+         Course code: DVCLD227
+       4. Think AI Weekly: ISG & SSG Better Together: Uniting AI Solutions & Services for Smarter
+          Outcomes
+          2025-08-01 | 55 minutes | Employees Only
+
+         View this session to hear from our speakers Allen Holmes, AI Technologist, ISG and Balaji
+         Subramaniam, AI Regional Leader-Americas, SSG.
+
+         Topics include:
+
+         • An overview of ISG & SSG AI CoE Offerings with Customer Case Studies
+         • The Enterprise AI Deal Engagement Flow with ISG and SSG
+         • How sellers can leverage this partnership to differentiate with Enterprise clients.
+         • NEW COURSE: From Inception to Execution: Evolution of an AI Deal
+
+         Tags: Artificial Intelligence (AI), Sales, Services, Technology Solutions, TruScale Infrastructure as a
+         Service
+         Published: 2025-08-01
+         Length: 55 minutes
+
+          Start the training:
+          Employee link: Grow@Lenovo
+
+         Course code: DTAIW145
+
+
+
+
+ThinkSystem NVIDIA HGX B200 180GB 1000W GPU                                                                        9
+       5. Think AI Weekly: Third-Party Due Diligence Requirements for GPU Opportunities
+          2025-07-24 | 46 minutes | Employees Only
+
+         View this session to hear from Tanya Roychowdhury, Legal Counsel Director and Andrea Fazio, Third-
+         party Due Diligence Project Manager as the explain:
+
+         - What are the requirements?
+         - Why are they important?
+         - What this means to sales
+
+         Tags: Artificial Intelligence (AI), DataCenter Products, NVIDIA, Sales, Technical Sales
+         Published: 2025-07-24
+         Length: 46 minutes
+
+          Start the training:
+          Employee link: Grow@Lenovo
+
+         Course code: DTAIW143
+       6. ThinkSystem Supercomputing Servers Powered by NVIDIA
+          2025-06-27 | 30 minutes | Employees and Partners
+
+         This course offers you information about the Lenovo SC777 V4 Neptune server, the first Lenovo server
+         to use an Arm processor from NVIDIA. By the end of this course, you’ll be able to list three features of
+         the ThinkSystem SC777 V4 Neptune server, list three features of the ThinkSystem N1380 Neptune
+         enclosure, describe two customer benefits of the ThinkSystem SC777 V4 Neptune server, and list four
+         workload environments to which the SC777 V4 server is well suited.
+
+         Tags: DataCenter Products, NVIDIA, ThinkSystem
+         Published: 2025-06-27
+         Length: 30 minutes
+
+          Start the training:
+          Employee link: Grow@Lenovo
+          Partner link: Lenovo 360 Learning Center
+
+         Course code: SXXW2545
+       7. VTT AI: NVIDIA and Lenovo: Data Center Platform Overview
+          2025-06-10 | 77 minutes | Employees Only
+
+         Please join this session to hear Steve Stein, Senior Product Marketing Manager, NVIDIA and Naman
+         Malhotra, Senior Product Manager, Lenovo as they present these topics:
+
+         •NVIDIA Accelerated Computing Portfolio
+         •Use Cases and Positioning
+         •Lenovo Platforms and Solutions
+
+         Tags: Artificial Intelligence (AI), Nvidia, Server
+         Published: 2025-06-10
+         Length: 77 minutes
+
+          Start the training:
+          Employee link: Grow@Lenovo
+
+         Course code: DVAI216
+
+
+
+
+ThinkSystem NVIDIA HGX B200 180GB 1000W GPU                                                                         10
+       8. VTT AI: Introducing the Lenovo Hybrid AI 285 Platform April 2025
+          2025-04-30 | 60 minutes | Employees Only
+
+         The Lenovo Hybrid AI 285 Platform enables enterprises of all sizes to quickly deploy AI infrastructures
+         supporting use cases as either new greenfield environments or as an extension to current
+         infrastructures. The 285 Platform enables the use of the NVIDIA AI Enterprise software stack. The AI
+         Hybrid 285 platform is the perfect foundation supporting Lenovo Validated Designs.
+         • Technical overview of the Hybrid AI 285 platform
+         • AI Hybrid platforms as infrastructure frameworks for LVDs addressing data center-based AI solutions.
+         • Accelerate AI adoption and reduce deployment risks
+
+         Tags: Artificial Intelligence (AI), Nvidia, Technical Sales, Lenovo Hybrid AI 285
+         Published: 2025-04-30
+         Length: 60 minutes
+
+          Start the training:
+          Employee link: Grow@Lenovo
+
+         Course code: DVAI215
+       9. Lenovo Cloud Architecture VTT: Supercharge Your Enterprise AI with NVIDIA AI Enterprise on
+          Lenovo Hybrid AI Platform
+          2025-04-17 | 75 minutes | Employees and Partners
+
+         Join us for an in-depth webinar with Justin King, Principal Product Marketing Manager for Enterprise
+         AI exploring the power of NVIDIA AI Enterprise, delivering Generative and Agentic AI outcomes
+         deployed with Lenovo Hybrid AI platform environments.
+         In today’s data-driven landscape, AI is evolving at high speed, with new techniques delivering more
+         accurate responses. Enterprises are seeking not just an understanding but also how they can achieve
+         AI-driven business outcomes.
+         With this, the demand for secure, scalable, and high-performing AI operations-and the skills to deliver
+         them-is top of mind for many. Learn how NVIDIA AI Enterprise, a comprehensive software suite
+         optimized for NVIDIA GPUs, provides the tools and frameworks, including NVIDIA NIM, NeMo, and
+         Blueprints, to accelerate AI development and deployment while reducing risk-all within the control and
+         security of your Lenovo customer’s hybrid AI environment.
+
+         Tags: Artificial Intelligence (AI), Cloud, Data Management, Nvidia, Technical Sales
+         Published: 2025-04-17
+         Length: 75 minutes
+
+          Start the training:
+          Employee link: Grow@Lenovo
+          Partner link: Lenovo 360 Learning Center
+
+         Course code: DVCLD221
+
+
+
+
+ThinkSystem NVIDIA HGX B200 180GB 1000W GPU                                                                        11
+     10. AI VTT: GTC Update and The Lenovo LLM Sizing Guide
+         2025-03-12 | 86 minutes | Employees Only
+
+         Please view this session that is two parts. Part one is Robert Daigle, Director, Global AI Solutions and
+         Hande Sahin-Bahceci, AI Solutions Marketing Leader explaining the upcoming announcements for
+         NVIDIA GTC. Part Two is Sachin Wani, AI Data Scientist explaining the Lenovo LLM Sizing Guide with
+         these topics:
+
+         • Minimum GPU requirements for fine-tuning/training and inference
+         • Gathering requirements for the customer's use case
+         • LLMs from a technical perspective
+
+         Tags: Artificial Intelligence (AI), Technical Sales
+         Published: 2025-03-12
+         Length: 86 minutes
+
+          Start the training:
+          Employee link: Grow@Lenovo
+
+         Course code: DVAI214
+     11. Q2 Solutions Launch TruScale GPU Next Generation Management in the AI Era Quick Hit
+         2024-09-10 | 6 minutes | Employees and Partners
+
+         This Quick Hit focuses on Lenovo announcing additional ways to help you build, scale, and evolve
+         your customer’s private AI faster for improved ROI with TruScale GPU as a Service, AI-driven systems
+         management, and infrastructure transformation services.
+
+         Tags: Artificial Intelligence (AI), Services, TruScale
+         Published: 2024-09-10
+         Length: 6 minutes
+
+          Start the training:
+          Employee link: Grow@Lenovo
+          Partner link: Lenovo 360 Learning Center
+
+         Course code: SXXW2543a
+
+
+
+
+ThinkSystem NVIDIA HGX B200 180GB 1000W GPU                                                                         12
+     12. VTT AI: The NetApp AIPod with Lenovo for NVIDIA OVX
+         2024-08-13 | 38 minutes | Employees and Partners
+
+         AI, for some organizations, is out of reach, due to cost, integration complexity, and time to
+         deployment. Previously, organizations relied on frequently retraining their LLMs with the latest data, a
+         costly and time-consuming process. The NetApp AIPod with Lenovo for NVIDIA OVX combines
+         NVIDIA-Certified OVX Lenovo ThinkSystem SR675 V3 servers with validated NetApp storage to create
+         a converged infrastructure specifically designed for AI workloads. Using this solution, customers will
+         be able to conduct AI RAG and inferencing operations for use cases like chatbots, knowledge
+         management, and object recognition.
+
+         Topics covered in this VTT session include:
+         •Where Lenovo fits in the solution
+         •NetApp AIPod with Lenovo for NVIDIA OVX Solution Overview
+         •Challenges/pain points that this solution solves for enterprises deploying AI
+         •Solution value/benefits of the combined NetApp, Lenovo, and NVIDIA OVX-Certified Solution
+
+         Tags: Artificial Intelligence (AI), Nvidia, Sales, Technical Sales, ThinkSystem
+         Published: 2024-08-13
+         Length: 38 minutes
+
+          Start the training:
+          Employee link: Grow@Lenovo
+          Partner link: Lenovo 360 Learning Center
+
+         Course code: DVAI206
+     13. Guidance for Selling NVIDIA Products at Lenovo for ISG
+         2024-07-01 | 25 minutes | Employees and Partners
+
+         This course gives key talking points about the Lenovo and NVIDIA partnership in the Data Center.
+         Details are included on where to find the products that are included in the partnership and what to do
+         if NVIDIA products are needed that are not included in the partnership. Contact information is included
+         if help is needed in choosing which product is best for your customer. At the end of this session sellers
+         should be able to explain the Lenovo and NVIDIA partnership, describe the products Lenovo can sell
+         through the partnership with NVIDIA, help a customer purchase other NVIDIA product, and get
+         assistance with choosing NVIDIA products to fit customer needs.
+
+         Tags: Artificial Intelligence (AI), Nvidia
+         Published: 2024-07-01
+         Length: 25 minutes
+
+          Start the training:
+          Employee link: Grow@Lenovo
+          Partner link: Lenovo 360 Learning Center
+
+         Course code: DNVIS102
+
+
+
+
+ThinkSystem NVIDIA HGX B200 180GB 1000W GPU                                                                          13
+      14. Think AI Weekly: Lenovo AI PCs & AI Workstations
+          2024-05-23 | 60 minutes | Employees Only
+
+         Join Mike Leach, Sr. Manager, Workstations Solutions and Pooja Sathe, Director Commercial AI PCs
+         as they discuss why Lenovo AI Developer Workstations and AI PCs are the most powerful, where they
+         fit into the device to cloud ecosystem, and this week’s Microsoft announcement, Copilot+PC
+
+         Tags: Artificial Intelligence (AI), ThinkStation
+         Published: 2024-05-23
+         Length: 60 minutes
+
+           Start the training:
+           Employee link: Grow@Lenovo
+
+         Course code: DTAIW105
+
+
+   Related links
+   For more information, refer to these documents:
+
+         ThinkSystem and ThinkAgile GPU Summary:
+         https://lenovopress.lenovo.com/lp0768-thinksystem-thinkagile-gpu-summary
+         ServerProven compatibility:
+         https://serverproven.lenovo.com/
+         NVIDIA HGX Platform product page:
+         https://www.nvidia.com/en-us/data-center/hgx//
+         ThinkSystem SR780a V3 product guide
+         https://lenovopress.lenovo.com/lp1980-thinksystem-sr780a-v3-server
+
+
+   Related product families
+   Product families related to this document are the following:
+
+         GPU adapters
+
+
+
+
+ThinkSystem NVIDIA HGX B200 180GB 1000W GPU                                                                  14
+   Notices
+   Lenovo may not offer the products, services, or features discussed in this document in all countries. Consult your local
+   Lenovo representative for information on the products and services currently available in your area. Any reference to a
+   Lenovo product, program, or service is not intended to state or imply that only that Lenovo product, program, or service
+   may be used. Any functionally equivalent product, program, or service that does not infringe any Lenovo intellectual
+   property right may be used instead. However, it is the user's responsibility to evaluate and verify the operation of any
+   other product, program, or service. Lenovo may have patents or pending patent applications covering subject matter
+   described in this document. The furnishing of this document does not give you any license to these patents. You can
+   send license inquiries, in writing, to:
+
+   Lenovo (United States), Inc.
+   8001 Development Drive
+   Morrisville, NC 27560
+   U.S.A.
+   Attention: Lenovo Director of Licensing
+
+   LENOVO PROVIDES THIS PUBLICATION ”AS IS” WITHOUT WARRANTY OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+   INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF NON-INFRINGEMENT, MERCHANTABILITY OR
+   FITNESS FOR A PARTICULAR PURPOSE. Some jurisdictions do not allow disclaimer of express or implied warranties in
+   certain transactions, therefore, this statement may not apply to you.
+
+   This information could include technical inaccuracies or typographical errors. Changes are periodically made to the
+   information herein; these changes will be incorporated in new editions of the publication. Lenovo may make
+   improvements and/or changes in the product(s) and/or the program(s) described in this publication at any time without
+   notice.
+
+   The products described in this document are not intended for use in implantation or other life support applications where
+   malfunction may result in injury or death to persons. The information contained in this document does not affect or
+   change Lenovo product specifications or warranties. Nothing in this document shall operate as an express or implied
+   license or indemnity under the intellectual property rights of Lenovo or third parties. All information contained in this
+   document was obtained in specific environments and is presented as an illustration. The result obtained in other
+   operating environments may vary. Lenovo may use or distribute any of the information you supply in any way it believes
+   appropriate without incurring any obligation to you.
+
+   Any references in this publication to non-Lenovo Web sites are provided for convenience only and do not in any manner
+   serve as an endorsement of those Web sites. The materials at those Web sites are not part of the materials for this
+   Lenovo product, and use of those Web sites is at your own risk. Any performance data contained herein was determined
+   in a controlled environment. Therefore, the result obtained in other operating environments may vary significantly. Some
+   measurements may have been made on development-level systems and there is no guarantee that these measurements
+   will be the same on generally available systems. Furthermore, some measurements may have been estimated through
+   extrapolation. Actual results may vary. Users of this document should verify the applicable data for their specific
+   environment.
+
+   © Copyright Lenovo 2026. All rights reserved.
+
+
+
+   This document, LP2226, was created or updated on January 13, 2026.
+   Send us your comments in one of the following ways:
+          Use the online Contact us review form found at:
+          https://lenovopress.lenovo.com/LP2226
+          Send your comments in an e-mail to:
+          comments@lenovopress.com
+   This document is available online at https://lenovopress.lenovo.com/LP2226.
+
+
+
+
+ThinkSystem NVIDIA HGX B200 180GB 1000W GPU                                                                                    15
+   Trademarks
+   Lenovo and the Lenovo logo are trademarks or registered trademarks of Lenovo in the United States, other
+   countries, or both. A current list of Lenovo trademarks is available on the Web at
+   https://www.lenovo.com/us/en/legal/copytrade/.
+   The following terms are trademarks of Lenovo in the United States, other countries, or both:
+   Lenovo®
+   Neptune®
+   ServerProven®
+   ThinkAgile®
+   ThinkSystem®
+   The following terms are trademarks of other companies:
+   AMD is a trademark of Advanced Micro Devices, Inc.
+   Intel®, the Intel logo is a trademark of Intel Corporation or its subsidiaries.
+   NVIDIA®, NVIDIA HGX®, NVIDIA Omniverse®, NVIDIA RTX®, and NVLink® are trademarks of NVIDIA
+   Corporation.
+   Other company, product, or service names may be trademarks or service marks of others.
+
+
+
+
+ThinkSystem NVIDIA HGX B200 180GB 1000W GPU                                                                   16
+

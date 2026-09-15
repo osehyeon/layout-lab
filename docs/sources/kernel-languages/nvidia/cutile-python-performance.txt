@@ -1,0 +1,377 @@
+Skip to main content
+
+Back to top
+
+
+cuTile Python
+
+
+
+
+cuTile Python
+
+Table of Contents
+	•	Release Notes
+	◦	1.6.0 (2026-09-09)
+	◦	1.5.0 (2026-07-08)
+	◦	1.4.0 (2026-05-26)
+	◦	1.3.0 (2026-04-20)
+	◦	1.2.0 (2026-03-05)
+	◦	1.1.0 (2026-01-30)
+	◦	1.0.1 (2025-12-18)
+	◦	1.0.0 (2025-12-02)
+	•	Quickstart
+	◦	Prerequisites
+	◦	Installing cuTile Python
+	◦	Other Packages
+	◦	Example Code
+	◦	Developer Tools
+	•	Execution Model
+	◦	Abstract Machine
+	◦	Execution Spaces
+	◦	Tile Functions
+	◦	Tile Kernels
+	◦	Python Subset
+	◦	Tile Parallelism
+	◦	Constantness
+	◦	Type Annotations
+	•	Data Model
+	◦	Global Arrays
+	◦	Tiles and Scalars
+	◦	Element & Tile Space
+	◦	Tiled Views
+	◦	Shape Broadcasting
+	◦	Data Types
+	◦	Numeric & Arithmetic Data Types
+	◦	Arithmetic Promotion
+	◦	Tuples
+	◦	Rounding Modes
+	◦	Padding Modes
+	•	Memory Model
+	◦	Memory Order
+	◦	Memory Scope
+	•	Interoperability
+	◦	Machine Representation
+	◦	Interoperability with SIMT
+	◦	JAX FFI
+	•	Performance Tuning
+	◦	Architecture-specific configuration
+	◦	Load/store performance hints
+	◦	Divisibility hints
+	◦	Autotuning
+	•	Operations
+	◦	Load/Store
+	◦	Factory
+	◦	Shape & DType
+	◦	Reduction
+	◦	Scan
+	◦	Matmul
+	◦	Selection
+	◦	Math
+	◦	Bitwise
+	◦	Comparison
+	◦	Atomic
+	◦	Utility
+	◦	Metaprogramming Support
+	◦	Classes
+	◦	Enums
+	◦	Autotuning
+	◦	JAX FFI
+	•	Compilation and Export
+	◦	Kernel Signatures
+	◦	Calling Conventions
+	•	Debugging
+	◦	Exception Types
+	◦	Compiler Timeout
+	◦	Environment Variables
+	◦	Inspecting the Compilation Cache
+	•	Known Issues
+
+
+	•	
+	•	Performance Tuning
+
+Performance Tuning#
+Several performance tuning techniques are available in cuTile:
+	•	architecture-specific configuration values, using ByTarget;
+	•	load/store hints such as latency and allow_tma;
+	•	divisibility hints via assume_divisible_by().
+Architecture-specific configuration#
+class cuda.tile.ByTarget(*, default=UNSPECIFIED, **value_by_target)#
+Type used to specify a value that depends on the target GPU architecture.
+Parameters:
+	•	default – The fallback value to use when the target GPU architecture is not explicitly listed in value_by_target.
+	•	value_by_target – Mapping from GPU architecture name to value. Keys must be strings of the form "sm_<major><minor>", such as "sm_100" or "sm_120".
+Examples
+Use one num_ctas value for all architectures:
+SnippetComplete Example
+from cuda.tile import ByTarget
+
+@ct.kernel(num_ctas=8)
+def kernel_fn(x):
+    ...
+Copy
+import cuda.tile as ct
+import torch
+
+torch.cuda.init()
+stream = torch.cuda.current_stream()
+
+from cuda.tile import ByTarget
+
+@ct.kernel(num_ctas=8)
+def kernel_fn(x):
+    ...
+
+torch.cuda.synchronize()
+Use different num_ctas values for specific architectures, and a fallback value for all others:
+SnippetComplete Example
+from cuda.tile import ByTarget
+
+@ct.kernel(num_ctas=ByTarget(sm_100=8, sm_120=4, default=2))
+def kernel_fn(x):
+    ...
+Copy
+import cuda.tile as ct
+import torch
+
+torch.cuda.init()
+stream = torch.cuda.current_stream()
+
+from cuda.tile import ByTarget
+
+@ct.kernel(num_ctas=ByTarget(sm_100=8, sm_120=4, default=2))
+def kernel_fn(x):
+    ...
+
+torch.cuda.synchronize()
+See Tile Kernels for the full description of kernel configuration parameters such as num_ctas, occupancy and opt_level. Any of these options may be given as a ByTarget value to specialize them for different GPU architectures.
+Load/store performance hints#
+The load() and store() operations accept optional keyword arguments that can influence how memory traffic is scheduled and lowered:
+	•	latency (int or None) – A hint indicating how heavy the DRAM traffic will be for this operation. It shall be an integer between 1 (low) and 10 (high). A large value typically fits the cases when DRAM traffic is high, and will likely result in a larger prefetch depth of the memory operation.
+	•	allow_tma (bool or None) – If True, the load or store may be lowered to use TMA (Tensor Memory Accelerator) when the target architecture supports it. If False, TMA will not be used for this operation. By default, TMA is allowed.
+These hints are optional: kernels will compile and run without specifying them, but providing them can help the compiler make better code-generation decisions for a particular memory-access pattern.
+Example#
+import cuda.tile as ct
+
+TILE_SIZE = 16
+
+
+@ct.kernel
+def load_store_with_hints_kernel(x, y):
+    bid = ct.bid(0)
+    tx = ct.load(
+        x,
+        index=(bid,),
+        shape=(TILE_SIZE,),
+        latency=8,        # high-latency DRAM load
+    )
+    ct.store(
+        y,
+        index=(bid,),
+        tile=tx,
+        latency=2,        # cheaper write
+        allow_tma=False,  # disallow TMA
+    )
+Divisibility hints#
+assume_divisible_by() is a compiler hint that declares an integer scalar to be divisible by a compile-time constant. No check is performed at runtime:
+n = ct.assume_divisible_by(n, 16)
+The compiler propagates the divisibility metadata through arithmetic operations — so that derived indices and pointer offsets inherit the same fact. This matters most when a runtime scalar is used to compute a dynamic array slice:
+@ct.kernel
+def kernel(x, dim_offset: int, dim_size: int):
+    dim_offset = ct.assume_divisible_by(dim_offset, 16)
+    dim_size   = ct.assume_divisible_by(dim_size,   16)
+    start = ct.bid(0) * dim_offset
+    sub_x = x.slice(axis=0, start=start, stop=start + dim_size)
+    tile  = ct.load(sub_x, index=(0,), shape=(128,))
+    ct.store(sub_x, index=(0,), tile=tile)
+Without the hints, the compiler treats dim_offset and dim_size as fully unknown and cannot prove alignment for the derived view. With the hints, it can infer alignment all the way into the view’s base address and shape, enabling wider memory operations.
+The hint is a programmer declaration, not an enforcement. Behavior is undefined if x is not actually divisible by divisor at runtime.
+Autotuning#
+tune.exhaustive_search() provides a convenient way to measure kernel performance on a finite space of configurations and return the best configuration.
+cuda.tile.tune.exhaustive_search(
+search_space,
+stream,
+grid_fn,
+kernel,
+args_fn,
+hints_fn=None,
+*,
+quiet=False,
+single_run_timeout_sec=None,
+)#
+Searches the entire search space and return the best configuration.
+Parameters:
+	•	search_space (Sequence[T]) – Sequence of configs to evaluate.
+	•	stream – The CUDA stream to execute kernel on.
+	•	grid_fn (Callable[[T], tuple[int, ...]]) – Maps a config to grid dimensions.
+	•	kernel (kernel | Callable[[T], kernel]) – The kernel to tune, or a function mapping a config to the kernel to tune. For best performance when using a function, return the same kernel object for configs that map to the same kernel.
+	•	args_fn (Callable[[T], tuple[Any, ...]]) – Maps a config to kernel arguments for timing.
+	•	hints_fn (Callable[[T], dict[str, Any]] | None) – Maps a config to compiler hints. Default: no hints.
+	•	quiet (bool) – If true, avoid printing any progress or result.
+	•	single_run_timeout_sec (float | None) – Wall-time timeout (in seconds) per kernel launch, enforced by running benchmarks in a subprocess. When None (the default), timeouts are disabled and kernels run directly without a subprocess.
+Returns:
+TuningResult with the best config and its time in microseconds.
+Return type:
+TuningResult[T]
+Examples:
+SnippetComplete Example
+# Define the kernel
+
+@ct.kernel
+def matmul(X, Y, Out,
+           tm: ct.Constant[int],
+           tn: ct.Constant[int],
+           tk: ct.Constant[int]):
+
+    i, j =  ct.bid(0), ct.bid(1)
+
+    x_view = X.tiled_view((tm, tk), padding_mode=ct.PaddingMode.ZERO)
+    y_view = Y.tiled_view((tk, tn), padding_mode=ct.PaddingMode.ZERO)
+    acc = ct.zeros((tm, tn), ct.float32)
+    for k in range(x_view.num_tiles(1)):
+        tx = x_view.load((i, k))
+        ty = y_view.load((k, j))
+        acc = ct.mma(tx, ty, acc)
+    ct.store(Out, (i, j), acc.astype(Out.dtype))
+
+# Tune the kernel
+
+from itertools import product
+from cuda.tile import ByTarget
+
+def tune(x, y, out) -> ct.tune.TuningResult:
+    keys = ("tm", "tn", "tk", "num_ctas")
+    search_space = [dict(zip(keys, vals))
+                    for vals in product(
+                    (64, 128),
+                    (64, 128),
+                    (32, 64),
+                    (1, 2))]
+    grid = lambda cfg: (ct.cdiv(M, cfg['tm']), ct.cdiv(N, cfg['tn']))
+    args = lambda cfg: (x, y, out.clone(), cfg['tm'], cfg['tn'], cfg['tk'])
+    hints = lambda cfg: {'num_ctas': ByTarget(sm_100=cfg['num_ctas'])}
+    stream = torch.cuda.current_stream()
+    tuning_result = ct.tune.exhaustive_search(search_space,
+                                              stream,
+                                              grid,
+                                              matmul,
+                                              args,
+                                              hints)
+    return tuning_result
+
+M, N, K = 1024, 256, 512
+x = torch.rand((M, K), dtype=torch.float16, device='cuda:0')
+y = torch.rand((K, N), dtype=torch.float16, device='cuda:0')
+out = torch.zeros((M, N), dtype=torch.float16, device='cuda:0')
+
+result = tune(x, y, out)
+print(f"Best config: {result.best.config} ({result.best.mean_us:.1f}us)")
+
+# Launch the kernel with tuned result
+
+tm, tn, tk, num_ctas = result.best.config.values()
+kernel = matmul.replace_hints(num_ctas=ByTarget(sm_100=num_ctas))
+ct.launch(torch.cuda.current_stream(),
+          (ct.cdiv(M, tm), ct.cdiv(N, tn)),
+          kernel,
+          (x, y, out, tm, tn, tk))
+
+torch.testing.assert_close(out, x @ y)
+Copy
+import cuda.tile as ct
+import torch
+
+torch.cuda.init()
+stream = torch.cuda.current_stream()
+
+# Define the kernel
+
+@ct.kernel
+def matmul(X, Y, Out,
+           tm: ct.Constant[int],
+           tn: ct.Constant[int],
+           tk: ct.Constant[int]):
+
+    i, j =  ct.bid(0), ct.bid(1)
+
+    x_view = X.tiled_view((tm, tk), padding_mode=ct.PaddingMode.ZERO)
+    y_view = Y.tiled_view((tk, tn), padding_mode=ct.PaddingMode.ZERO)
+    acc = ct.zeros((tm, tn), ct.float32)
+    for k in range(x_view.num_tiles(1)):
+        tx = x_view.load((i, k))
+        ty = y_view.load((k, j))
+        acc = ct.mma(tx, ty, acc)
+    ct.store(Out, (i, j), acc.astype(Out.dtype))
+
+# Tune the kernel
+
+from itertools import product
+from cuda.tile import ByTarget
+
+def tune(x, y, out) -> ct.tune.TuningResult:
+    keys = ("tm", "tn", "tk", "num_ctas")
+    search_space = [dict(zip(keys, vals))
+                    for vals in product(
+                    (64, 128),
+                    (64, 128),
+                    (32, 64),
+                    (1, 2))]
+    grid = lambda cfg: (ct.cdiv(M, cfg['tm']), ct.cdiv(N, cfg['tn']))
+    args = lambda cfg: (x, y, out.clone(), cfg['tm'], cfg['tn'], cfg['tk'])
+    hints = lambda cfg: {'num_ctas': ByTarget(sm_100=cfg['num_ctas'])}
+    stream = torch.cuda.current_stream()
+    tuning_result = ct.tune.exhaustive_search(search_space,
+                                              stream,
+                                              grid,
+                                              matmul,
+                                              args,
+                                              hints)
+    return tuning_result
+
+M, N, K = 1024, 256, 512
+x = torch.rand((M, K), dtype=torch.float16, device='cuda:0')
+y = torch.rand((K, N), dtype=torch.float16, device='cuda:0')
+out = torch.zeros((M, N), dtype=torch.float16, device='cuda:0')
+
+result = tune(x, y, out)
+print(f"Best config: {result.best.config} ({result.best.mean_us:.1f}us)")
+
+# Launch the kernel with tuned result
+
+tm, tn, tk, num_ctas = result.best.config.values()
+kernel = matmul.replace_hints(num_ctas=ByTarget(sm_100=num_ctas))
+ct.launch(torch.cuda.current_stream(),
+          (ct.cdiv(M, tm), ct.cdiv(N, tn)),
+          kernel,
+          (x, y, out, tm, tn, tk))
+
+torch.testing.assert_close(out, x @ y)
+
+torch.cuda.synchronize()
+Output
+16 succeeded, 0 failed
+...
+Best config: {'tm': ..., 'tn': ..., 'tk': ..., 'num_ctas': ...} (...us)
+To achieve consistent result with tuning, it is best to fix GPU clock and memory clock.
+Enable persistent mode:
+nvidia-smi -i <GPU_ID> -pm 1
+Query supported clocks:
+nvidia-smi -i <GPU_ID> --query-supported-clocks=graphics,memory --format=csv | head
+Fix graphics and memory clocks:
+nvidia-smi -i <GPU_ID> -lgc <MIN_CLOCK>,<MAX_CLOCK>
+nvidia-smi -i <GPU_ID> -lmc <MIN_CLOCK>,<MAX_CLOCK>
+previous
+Interoperability
+next
+Operations
+On this page
+	•	Architecture-specific configuration
+	•	Load/store performance hints
+	◦	Example
+	•	Divisibility hints
+	•	Autotuning
+
+ 
+Privacy Policy | Your Privacy Choices | Terms of Service | Accessibility | Corporate Policies | Product Security | Contact
+Copyright © 2025, NVIDIA Corporation. 

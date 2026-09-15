@@ -1,0 +1,13 @@
+# 원본 자료의 바이너리/원문은 커밋하지 않는다.
+# pdftotext -layout 로 뽑은 .txt 와 SOURCES.md(원본 URL)만 남긴다 —
+# 문서가 실제로 grep 하는 대상이 .txt 이고, 원본은 URL 로 다시 받을 수 있다.
+docs/sources/**/*.pdf
+docs/sources/**/*.html
+docs/sources/**/*.htm
+
+# 작업용
+scratchpad/
+__pycache__/
+*.pyc
+.DS_Store
+.venv/

@@ -1,0 +1,881 @@
+# Deployment and Autotuning
+
+Helion’s autotuner explores a large search space which is a
+time-consuming process, so production deployments should generate
+autotuned configs **ahead of time**. Run the autotuner on a development
+workstation or a dedicated tuning box that mirrors your target
+GPU/accelerator. Check tuned configs into your repository alongside the kernel,
+or package them as data files and load them with `helion.Config.load`
+(see {doc}`api/config`). This keeps production kernel startup fast and
+deterministic, while also giving explicit control over when autotuning
+happens.
+
+If you don't specify pre-tuned configs, Helion will autotune on the
+first call for each specialization key. This is convenient for
+experimentation, but not ideal for production since the first call
+pays a large tuning cost.  Helion writes successful tuning results to
+an on-disk cache (overridable with `HELION_CACHE_DIR`, skippable
+with `HELION_SKIP_CACHE`, see {doc}`api/settings`) so repeated
+runs on the same machine can reuse prior configs.  For more on
+caching see {py:class}`~helion.autotuner.local_cache.LocalAutotuneCache`
+and {py:class}`~helion.autotuner.local_cache.StrictLocalAutotuneCache`.
+
+The rest of this document covers strategies for pre-tuning and deploying
+tuned configs, which is the recommended approach for production workloads.
+
+## Run Autotuning Jobs
+
+The simplest way to launch autotuning straight through the kernel call:
+
+```python
+import torch, helion
+
+@helion.kernel()
+def my_kernel(x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
+    ...
+
+example_inputs = (
+    torch.randn(1048576, device="cuda"),
+    torch.randn(1048576, device="cuda"),
+)
+
+# First call triggers autotuning, which is cached for future calls, and prints the best config found.
+my_kernel(*example_inputs)
+```
+Set `HELION_FORCE_AUTOTUNE=1` to re-run tuning even when cached configs
+exist; the new result is saved back to the cache.
+Use `HELION_SKIP_CACHE=1` to skip both reading and writing the cache
+entirely (documented in {doc}`api/settings`).
+
+Call `my_kernel.autotune(example_inputs)` explicitly to separate
+tuning from execution (see {doc}`api/kernel`).
+`autotune()` returns the best config found, which you can save for
+later use.  Tune against multiple sizes by invoking `autotune` with
+a list of representative shapes, for example:
+
+```python
+datasets = {
+  "s": (
+      torch.randn(2**16, device="cuda"),
+      torch.randn(2**16, device="cuda"),
+  ),
+  "m": (
+      torch.randn(2**20, device="cuda"),
+      torch.randn(2**20, device="cuda"),
+  ),
+  "l": (
+      torch.randn(2**24, device="cuda"),
+      torch.randn(2**24, device="cuda"),
+  ),
+}
+
+for tag, args in datasets.items():
+  config = my_kernel.autotune(args)
+  config.save(f"configs/my_kernel_{tag}.json")
+```
+
+### Direct Control Over Autotuners
+
+When you need more control, construct autotuners
+manually. {py:class}`~helion.autotuner.surrogate_pattern_search.LFBOTreeSearch` is the default
+autotuner:
+
+```python
+from helion.autotuner import LFBOTreeSearch
+
+bound = my_kernel.bind(example_inputs)
+tuner = LFBOTreeSearch(
+    bound,
+    example_inputs,
+    # Double the defaults to explore more candidates:
+    initial_population=200,  # Default is 100.
+    copies=10,               # Default is 5.
+    max_generations=40,      # Default is 20.
+)
+best_config = tuner.autotune()
+best_config.save("configs/my_kernel.json")
+```
+
+- Adjust `initial_population`, `copies`, or `max_generations` to trade
+tuning time versus coverage, or try different search algorithms.
+
+- Use different input tuples to produce multiple saved configs
+(`my_kernel_large.json`, `my_kernel_fp8.json`, etc.).
+
+- Tuning runs can be seeded with `HELION_AUTOTUNE_RANDOM_SEED` if you
+need more reproducibility; see {doc}`api/settings`.  Note this only
+affects which configs are tried, not the timing results.
+
+## Effort Profiles and Initial Population Strategies
+
+### Autotuning Effort
+
+The `autotune_effort` setting controls how much work the autotuner does.
+Each effort level configures the search algorithm with a different budget
+and a default **initial population strategy** that determines how the
+starting configs are generated:
+
+| Effort | Initial Population Strategy | Use Case |
+|--------|---------------------------|----------|
+| `"none"` | N/A (no autotuning) | Development iteration — uses the default config only |
+| `"quick"` | `from_best_available` (no random padding) | Fast development tuning — reuses cached configs and default, no random exploration |
+| `"full"` | `from_random` | Production tuning — explores the full search space randomly |
+
+Set the effort via the decorator or an environment variable:
+
+```python
+@helion.kernel(autotune_effort="quick")
+def my_kernel(x: torch.Tensor) -> torch.Tensor:
+    ...
+```
+
+```bash
+export HELION_AUTOTUNE_EFFORT=quick
+```
+
+The `"quick"` preset is a practical middle ground: it seeds the initial
+population with the default configuration plus any matching cached configs
+from prior runs, without adding random exploration.  A typical `quick` run
+finishes in seconds (e.g. ~3s / ~32 configs for a simple kernel),
+compared to `"full"` which generates a large random initial population
+and runs many more generations (often ~10 minutes).
+
+### Initial Population Strategies
+
+The initial population strategy determines how the autotuner generates
+its starting set of configurations before beginning the search:
+
+- **`from_random`** (default for `"full"`): Generates a fully random
+  initial population, maximizing diversity in the search space.
+
+- **`from_best_available`** (default for `"quick"`): Seeds the initial
+  population with the default configuration plus the best configs from
+  previous autotuning runs found in the local cache.  When used with the
+  `"full"` effort, the remainder of the population budget is filled with
+  random configs.  When used with `"quick"`, only the default and cached
+  configs are used (no random padding).  This strategy is useful when:
+
+  - You are **iterating on a kernel** and want to warm-start from what
+    previously worked rather than searching from scratch.
+  - You are **tuning across similar problem sizes** on the same
+    hardware — configs that worked for one size are often good starting
+    points for another.
+  - You want **incremental improvement** over multiple tuning sessions
+    without repeating work already done.
+
+  The strategy matches cached configs by hardware, specialization key,
+  and structural fingerprint, so it only reuses results that are
+  structurally compatible with the current kernel.  If
+  `HELION_REMOTE_CACHE_BACKEND` is configured *and* the backend overrides
+  the optional `list()` method, remote entries are merged in to fill the
+  remaining slots up to `autotune_best_available_max_configs` (default
+  20) after the local scan — see [Remote Autotune Cache](#remote-autotune-cache).
+
+Override the default strategy for any effort level with the
+`HELION_AUTOTUNER_INITIAL_POPULATION` environment variable:
+
+```bash
+# Use from_best_available with the full search budget
+export HELION_AUTOTUNE_EFFORT=full
+export HELION_AUTOTUNER_INITIAL_POPULATION=from_best_available
+```
+
+Related settings for `from_best_available` (see {doc}`api/settings`):
+
+| Setting | Environment Variable | Default | Description |
+|---------|---------------------|---------|-------------|
+| `autotune_best_available_max_configs` | `HELION_BEST_AVAILABLE_MAX_CONFIGS` | 20 | Maximum cached configs to seed |
+| `autotune_best_available_max_cache_scan` | `HELION_BEST_AVAILABLE_MAX_CACHE_SCAN` | 500 | Maximum cache files to scan |
+
+### Autotune budget
+
+Set ``autotune_budget_seconds`` (or
+``HELION_AUTOTUNE_BUDGET_SECONDS``) to cap autotune wall time and
+return the best configuration found so far when the budget elapses:
+
+```bash
+export HELION_AUTOTUNE_BUDGET_SECONDS=300
+```
+
+```python
+@helion.kernel(autotune_budget_seconds=300)
+def my_kernel(x: torch.Tensor) -> torch.Tensor:
+    ...
+```
+
+The budget is checked between generations and during the finishing
+phase. In-flight compiling and benchmarking completes before the
+search stops. The default is ``None`` (no budget).
+
+## Search Space Analysis
+
+Helion can log a search space analysis after each autotune run (opt-in, disabled by default). This feature helps you understand:
+
+- **Which features are being searched** — Shows enabled/disabled config keys and why (backend constraints, hardware limits, kernel properties)
+- **Total search space size** — The exact combinatorial product of all search dimensions' cardinalities (an arbitrary-precision integer that can be very large; reported as ``unknown`` only when a dimension's cardinality can't be determined)
+- **Coverage metrics** — How many configs were tested vs. total space
+- **Per-feature exploration** — Exactly how many options of each feature were tested (e.g., "pid_type: 2/8 options tested (25.0%)")
+
+Two verbosity levels are available:
+
+- **Summary** (``autotune_log_search_space``) — the end-of-run report shown below.
+- **Verbose** (``autotune_log_search_space_verbose``) — additionally logs each restriction *live* at ``INFO`` the moment it is applied during compilation, so you can see *why* the search space shrank as it happens. Enabling verbose implies the summary. Example live lines:
+
+  ```
+  Autotuner feature restriction: pid_type='xyz' disabled (data-dependent loop bounds require a persistent kernel ...)
+  Autotuner feature restriction: tcgen05 search narrowed to validated configs (matmul kernel with CuTe tcgen05 backend)
+  ```
+
+### Example Output
+
+```
+============================================================
+Autotune Search Space Analysis
+============================================================
+Search space for flash_attention_fwd:
+  Backend: cute, Hardware: NVIDIA H100
+  Total search space size: 2,457,600
+  Search dimensions: 8
+  Disabled features (12):
+    - num_warps: CuTe backend (uses num_threads)
+    - pallas_loop_type: CuTe backend (no Pallas loops)
+    - epilogue_subtile: flash attention search (disabled)
+  Search algorithm: DifferentialEvolutionSearch
+  Time: 245.3s, Configs tested: 128
+  Configs attempted: 512 (500 valid, 12 invalid, 97.7% valid)
+  Overall search space coverage: 0.005208%
+  Per-feature exploration:
+    Average feature coverage: 31.2%
+    Minimum feature coverage: 8.3%
+    - loop_orders: 12/120 options tested (10.0%)
+    - pid_type: 2/8 options tested (25.0%)
+    - num_threads: 128/256 options tested (50.0%)
+
+  Features with <50% exploration:
+    - loop_orders: only 12 of 120 values tested
+    - pid_type: only 2 of 8 values tested
+
+Search Coverage:
+  Configs tested: 128
+  Total space: 2,457,600
+  Coverage: 0.005208%
+  Search algorithm: DifferentialEvolutionSearch
+  Time elapsed: 245.3s
+```
+
+### Configuration
+
+Control via environment variables or settings:
+
+```bash
+# Enable search space logging (disabled by default)
+export HELION_AUTOTUNE_LOG_SEARCH_SPACE=1
+
+# Additionally log each restriction live as it is applied during compilation
+# (implies HELION_AUTOTUNE_LOG_SEARCH_SPACE=1). Useful for seeing *why* the
+# search space shrank, e.g. which pid_types were disabled and why.
+export HELION_AUTOTUNE_LOG_SEARCH_SPACE_VERBOSE=1
+
+# Save analysis to JSON files (also requires HELION_AUTOTUNE_LOG_SEARCH_SPACE=1).
+# The kernel name and autotuner cache hash are injected into the filename stem,
+# so distinct kernels/shapes write separate files instead of overwriting.
+export HELION_AUTOTUNE_LOG_SEARCH_SPACE_PATH=/tmp/analysis.json
+# Creates, per kernel/shape:
+#   /tmp/analysis.<kernel>.<hash>.json  (search space + exploration report)
+```
+
+Or via decorator:
+
+```python
+@helion.kernel(
+    autotune_log_search_space=True,
+    autotune_log_search_space_verbose=True,
+    autotune_log_search_space_path="/tmp/analysis.json",
+)
+def my_kernel(x: torch.Tensor) -> torch.Tensor:
+    ...
+```
+
+### Use Cases
+
+1. **Debugging search quality** — Identify if the search algorithm is getting stuck (e.g., only testing 2 of 8 PID types)
+2. **Budget tuning** — Low overall coverage suggests increasing `autotune_budget_seconds`
+3. **Backend comparison** — Compare search spaces across different backends or hardware
+4. **Constraint validation** — Verify that shape-dependent constraints are working as expected
+
+See :py:mod:`helion.autotuner.search_space_logger` for API details.
+
+## Remote Autotune Cache
+
+Helion ships an ABC, `RemoteCacheBackend`, so the autotune cache can
+be backed by any remote store (Redis, S3, HTTP service, shared
+filesystem, etc.). Helion does not ship a concrete backend — you
+provide the class and point Helion at it.
+
+Useful when:
+
+- **Teams share autotune results across machines** — one developer
+  autotunes; the rest get the result without re-running the search.
+- **CI/CD warm-starts production deployments** — a nightly tuning job
+  populates the remote cache; runtime sees cache hits.
+- **Multi-node clusters avoid duplicate autotuning** — every node hits
+  the same shared cache instead of independently re-tuning identical
+  kernels on identical hardware.
+
+### Setup
+
+Implement `RemoteCacheBackend` somewhere on your import path:
+
+```python
+from helion.autotuner.remote_cache import RemoteCacheBackend
+
+class MyBackend(RemoteCacheBackend):
+    def get(self, key: str) -> str | None: ...
+    def put(self, key: str, data: str) -> None: ...
+    # Optional: implement to enable warm-start lookups
+    # (from_best_available / helion.from_cache pull from the remote
+    # when local matches are below autotune_best_available_max_configs).
+    def list(self, max_results: int | None = None): ...
+```
+
+Point Helion at it via env vars:
+
+```bash
+# Required: load the backend class.
+export HELION_REMOTE_CACHE_BACKEND=mypackage.cache.MyBackend
+
+# Optional: also write the winning config back to the remote on every
+# autotune. Without this, the remote is read-only from this machine
+# (warm-start still works, exact-match still hits).
+export HELION_AUTOTUNE_CACHE=RemoteAutotuneCache
+```
+
+### Two layers
+
+The two env vars are independent and address different needs:
+
+| Goal | Env vars needed |
+|------|------------------|
+| Exact-match cache (skip autotuning when a previous run produced a config) | `HELION_REMOTE_CACHE_BACKEND` + `HELION_AUTOTUNE_CACHE=RemoteAutotuneCache` |
+| Warm-start from remote (seed initial population from prior runs) | `HELION_REMOTE_CACHE_BACKEND` + a backend that overrides `list()` |
+| Both | All of the above |
+
+### Behavior
+
+`RemoteAutotuneCache` is **read-through / write-through**: reads
+consult the remote first and materialize hits locally; writes go to
+both local disk and the remote.  Local disk remains the source of
+truth on this machine, so a remote outage degrades gracefully — local
+cached configs still serve hits, and `put` failures only log a warning
+(the local write still succeeds).
+
+Warm-start scans local first; if there are fewer than
+`autotune_best_available_max_configs` compatible entries, it merges
+remote entries (deduplicated against local) to fill the remainder.
+Both sides apply the same filtering (hardware, specialization key,
+`config_spec_hash`).
+
+`StrictRemoteAutotuneCache` exists for users who want the strict key
+semantics (invalidate on Helion/PyTorch/Triton source changes) — same
+read-through / write-through behavior.
+
+See {py:class}`~helion.autotuner.remote_cache.RemoteCacheBackend` for
+the ABC and {py:class}`~helion.autotuner.remote_cache.RemoteAutotuneCache`
+for the wrapper class.
+
+## Deploy a Single Config
+
+If one configuration wins for every production call, bake it into the decorator:
+
+```python
+best = helion.Config.load("configs/my_kernel.json")
+
+@helion.kernel(config=best)
+def my_kernel(x, y):
+    ...
+```
+
+The supplied `config` applies to **all** argument shapes, dtypes, and
+devices that hit this kernel. This is ideal for workloads with a single
+critical path or when you manage routing externally. `helion.Config.save`
+/ `load` make it easy to copy configs between machines; details live
+in {doc}`api/config`.  One can also copy and paste the config from the
+autotuner output.
+
+
+## Deploy Multiple Configs
+
+When you expect variability, supply a small list of candidates:
+
+```python
+candidate_configs = [
+    helion.Config.load("configs/my_kernel_small.json"),
+    helion.Config.load("configs/my_kernel_large.json"),
+]
+
+@helion.kernel(configs=candidate_configs, static_shapes=True)
+def my_kernel(x, y):
+    ...
+```
+
+Helion performs a lightweight benchmark (similar to Triton’s autotune)
+the first time each specialization key is seen, running each provided
+config and selecting the fastest.
+
+A key detail here is controlling the specialization key, which
+determines when to re-benchmark. Options include:
+
+- **Default (`static_shapes=True`):** Helion shape-specializes on the exact
+  shape/stride signature, rerunning the selection whenever those shapes
+  differ. This delivers the best per-shape performance but requires all calls
+  to match the example shapes exactly.
+
+- **`static_shapes=False`:** switch to bucketed dynamic shapes. Helion
+  reuses results as long as tensor dtypes and device types stay constant.
+  Shape changes only trigger a re-selection when a dimension size crosses
+  the buckets `{0, 1, ≥2}`. Helion also tracks whether any tensor exceeds the
+  `torch.int32` indexing limit (more than ``2**31 - 1`` elements) and will
+  automatically regenerate code with 64-bit indexing in that case. Use this
+  mode when you need one compiled kernel to handle many input sizes, and pin
+  ``@helion.kernel(..., index_dtype=torch.int64)`` if large tensors are the norm
+  so you avoid an extra specialization boundary.
+
+- **Custom keys:** pass `key=` to group calls however you like.
+This custom key is in addition to the above.
+
+As an example, you could trigger re-tuning with power-of-two bucketing:
+
+```python
+@helion.kernel(
+    configs=candidate_configs,
+    key=lambda x, y: helion.next_power_of_2(x.numel()),
+    static_shapes=False,
+)
+def my_kernel(x, y):
+    ...
+```
+
+See {doc}`api/kernel` for the full decorator reference.
+
+## Selective Shape Specialization
+
+The `static_shapes` setting is all-or-nothing: either every dimension is
+specialized (`static_shapes=True`) or dimensions are bucketed dynamically
+(`static_shapes=False`). Sometimes you want finer control - specializing
+only specific dimensions while keeping others dynamic.
+
+Helion provides two APIs for selective shape specialization:
+
+| API | Location | Effect |
+|-----|----------|--------|
+| `hl.specialize()` | Inside kernel | Dimension always specialized for all calls |
+| `torch._dynamo.mark_static()` | Outside kernel | Dimension specialized only for marked tensors |
+
+### `hl.specialize()` - Internal Specialization
+
+Use {func}`~helion.language.specialize` inside the kernel to make specific
+dimensions compile-time constants. This applies to **every call** to the kernel:
+
+```python
+import torch
+import helion
+import helion.language as hl
+
+@helion.kernel(static_shapes=False)
+def rms_norm_fwd(
+    x: torch.Tensor, weight: torch.Tensor, eps: float = 1e-5
+) -> torch.Tensor:
+    m, n = x.size()
+    hl.specialize(n)  # hidden dimension becomes a compile-time constant
+    out = torch.empty_like(x)
+    for tile_m in hl.tile(m):
+        x_tile = x[tile_m, :].to(torch.float32)
+        x_squared = x_tile * x_tile
+        mean_x_squared = torch.mean(x_squared, dim=-1)
+        inv_rms = torch.rsqrt(mean_x_squared + eps)
+        normalized = x_tile * inv_rms[:, None]
+        out[tile_m, :] = (normalized * weight[:].to(torch.float32)).to(out.dtype)
+    return out
+
+# Every call specializes on n - different hidden sizes = different cache entries
+weight_4096 = torch.randn([4096], device="cuda")
+weight_2048 = torch.randn([2048], device="cuda")
+result1 = rms_norm_fwd(torch.randn([2048, 4096], device="cuda"), weight_4096)  # compiles for n=4096
+result2 = rms_norm_fwd(torch.randn([1024, 4096], device="cuda"), weight_4096)  # reuses n=4096
+result3 = rms_norm_fwd(torch.randn([2048, 2048], device="cuda"), weight_2048)  # compiles for n=2048
+```
+
+Use `hl.specialize()` when a dimension is performance-critical and you want
+it specialized regardless of how the kernel is called.
+
+Tensor strides can be specialized in the same way, for example
+`row_stride = hl.specialize(x.stride(0))`. The stride is inlined in generated
+code and included in the kernel cache key, so inputs with different layouts
+compile separate variants.
+
+### `torch._dynamo.mark_static()` - External Specialization
+
+Use `torch._dynamo.mark_static()` **before** calling the kernel to specialize
+dimensions on specific tensors. This is useful when you want the **same kernel**
+to serve both dynamic and specialized code paths:
+
+```python
+@helion.kernel(static_shapes=False)
+def matmul(x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
+    m, k = x.size()
+    k2, n = y.size()
+    out = torch.empty([m, n], device=x.device, dtype=x.dtype)
+    for tile_m, tile_n in hl.tile([m, n]):
+        acc = hl.zeros([tile_m, tile_n], dtype=torch.float32)
+        for tile_k in hl.tile(k):
+            acc = torch.addmm(acc, x[tile_m, tile_k], y[tile_k, tile_n])
+        out[tile_m, tile_n] = acc.to(x.dtype)
+    return out
+
+# Dynamic call - all dimensions remain symbolic
+x_dyn = torch.randn([m, k], device="cuda", dtype=torch.float16)
+y_dyn = torch.randn([k, n], device="cuda", dtype=torch.float16)
+result = matmul(x_dyn, y_dyn)
+
+# Specialized call - mark specific dimensions as compile-time constants
+x_opt = torch.randn([64, 128], device="cuda", dtype=torch.float16)
+y_opt = torch.randn([128, 56], device="cuda", dtype=torch.float16)
+torch._dynamo.mark_static(x_opt, [0, -1])  # specialize dims 0 and -1 (M and K)
+torch._dynamo.mark_static(y_opt, 1)        # specialize dim 1 (N)
+result = matmul(x_opt, y_opt)  # generates code with 64, 128, 56 as constants
+```
+
+This pattern enables a **single kernel definition** to serve both:
+- Fully dynamic fallback paths (for rare edge-case shapes)
+- Optimized hot paths (with shape constants baked into generated code)
+
+### Combining Both APIs
+
+The two APIs form a **union** - you can use `hl.specialize()` for dimensions
+that should always be specialized, and `mark_static()` for additional
+per-call specialization:
+
+```python
+@helion.kernel(static_shapes=False)
+def fn(x: torch.Tensor) -> torch.Tensor:
+    hl.specialize(x.size(0))  # dim 0 always specialized (internal)
+    out = torch.empty_like(x)
+    for tile in hl.tile(x.size()):
+        out[tile] = x[tile] * 2
+    return out
+
+# mark_static on dim 1 combines with hl.specialize on dim 0
+x = torch.randn([320, 640], device="cuda")
+torch._dynamo.mark_static(x, -1)  # specialize dim 1 (external)
+result = fn(x)  # both 320 and 640 become constants
+```
+
+### Cache Behavior
+
+Each unique combination of specialized dimension values creates a separate
+cache entry:
+- Unspecialized calls share one dynamic cache entry
+- Calls with `mark_static()` create entries keyed by the specialized values
+- Different specialized values (e.g., `[64, 128]` vs `[48, 96]`) create separate entries
+
+## Advanced Manual Deployment
+
+Some teams prefer to skip all runtime selection, using Helion only as
+an ahead-of-time compiler.  For this use case we provide `Kernel.bind`
+and `BoundKernel.compile_config`, enabling wrapper patterns that let
+you implement bespoke routing logic.  For example, to route based on
+input size:
+
+```python
+bound = my_kernel.bind(example_inputs)
+
+small_cfg = helion.Config.load("configs/my_kernel_small.json")
+large_cfg = helion.Config.load("configs/my_kernel_large.json")
+
+small_run = bound.compile_config(small_cfg)  # Returns a callable
+large_run = bound.compile_config(large_cfg)
+
+def routed_my_kernel(x, y):
+    runner = small_run if x.numel() <= 2**16 else large_run
+    return runner(x, y)
+```
+
+`Kernel.bind` produces a `BoundKernel` tied to sample
+input types. You can pre-compile as many configs as you need using
+`BoundKernel.compile_config`.  **Warning:** `kernel.bind()` specializes,
+and the result will only work with the same input types you passed.
+
+- With `static_shapes=True` (default) the bound kernel only works for the
+exact shape/stride signature of the example inputs.  The generated code
+has shapes baked in, which often provides a performance boost.
+
+- With `static_shapes=False` it will specialize on the input dtypes,
+  device types, and whether each dynamic dimension falls into the 0, 1,
+  or ≥2 bucket.  Python types are also specialized.  For dimensions that
+  can vary across those buckets, supply representative inputs ≥2 to avoid
+  excessive specialization.  Just like the autotuning flow above, Helion
+  records whether any tensor crosses the int32 indexing limit when
+  `static_shapes=False`; explicitly set `index_dtype=torch.int64` if your
+  deployment commonly exceeds that threshold to avoid recompilation.
+
+If you need to support multiple input types, bind multiple times with
+representative inputs.
+
+Alternately, you can export Triton source with
+`bound.to_triton_code(small_cfg)` to drop Helion from your serving
+environment altogether, embedding the generated kernel in a custom
+runtime.  The Triton kernels could then be compiled down into PTX/cubins
+to further remove Python from the critical path, but details on this
+are beyond the scope of this document.
+
+## Ahead-of-Time (AOT) Heuristic Tuning
+
+Helion's standard autotuning runs at the first call to a kernel and tunes
+for the *exact* arguments seen.  That is great for development, but it
+forces every cold-start invocation to pay a long tuning cost, and it does
+not help when a deployed kernel needs to serve many different input shapes
+without retuning each one.
+
+The **AOT autotuning workflow** addresses both problems.  Offline, you
+sweep a kernel over a representative shape set, tune each shape, then
+distill the (shape → best-config) table into a small **decision-tree
+heuristic**.  At runtime, the heuristic picks a tuned config for the
+caller's shape in microseconds — no autotuner involved.  The pretuned
+kernels under [`pretuned_kernels/`](https://github.com/pytorch/helion/tree/main/pretuned_kernels)
+ship pretuned heuristic files that demonstrate this end-to-end.
+
+### When to use AOT
+
+- You ship Helion in a service or library that handles a wide range of
+  input shapes (e.g., variable token counts in an LLM serving stack,
+  variable matmul dimensions).
+- You want zero-cost (or near-zero-cost) per-shape config selection at
+  runtime — neither full autotuning nor a small benchmark sweep.
+- You can identify a representative shape sweep at offline tuning time.
+  AOT generalizes by *interpolating* the decision tree over input
+  features (shape sizes, dtype, etc.); shapes outside the tuned regime
+  may still pick a reasonable config but are not guaranteed optimal.
+
+### Quick start: decorate a kernel for AOT
+
+Use {py:func}`helion.aot_kernel` instead of
+{py:func}`helion.kernel`.  The decorator wires the kernel into an
+{py:class}`~helion.autotuner.aot_cache.AOTAutotuneCache`, which is what
+loads the generated heuristic at runtime:
+
+```python
+import torch
+import helion
+import helion.language as hl
+
+
+@helion.aot_kernel()
+def vector_add(x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
+    out = torch.empty_like(x)
+    for tile in hl.tile(x.size(0)):
+        out[tile] = x[tile] + y[tile]
+    return out
+```
+
+Until you generate a heuristic, calling `vector_add` falls back to the
+default Helion config and prints a one-time warning telling you to run the
+AOT runner.
+
+The decorator accepts a few extras:
+
+- `batched=...` marks tensor dimensions whose size does not affect the
+  optimal config (e.g., the batch dimension of an attention kernel), so
+  the heuristic key ignores them and config selection generalizes
+  across batch sizes.
+- `key=fn` lets you supply a custom feature extractor when the default
+  shape-feature extraction is not what you want (for example, deriving
+  `(M, N, K)` from a custom argument layout).
+- `collect_fn` / `measure_fn` define the input sweeps the offline
+  workflow uses for each phase, so the workflow can run end-to-end from
+  a single benchmark invocation.
+
+See [`examples/aot_example.py`](https://github.com/pytorch/helion/blob/main/examples/aot_example.py)
+for runnable demonstrations of each option, and
+[`helion/autotuner/aot_kernel.py`](https://github.com/pytorch/helion/blob/main/helion/autotuner/aot_kernel.py)
+for the full decorator reference.
+
+### Offline workflow: collect → measure → evaluate
+
+The AOT runner orchestrates a three-phase workflow over a benchmark
+script that exercises the kernel across the shapes you care about:
+
+```bash
+python -m helion.autotuner.aot_runner -- python my_benchmark.py
+```
+
+`my_benchmark.py` is *your* script — it imports the kernel and calls it
+on every shape in the sweep.  The runner re-invokes the script three
+times with different `HELION_AOT_MODE` settings:
+
+1. **`collect`** — for each unique shape, autotune the kernel from
+   scratch and record `(kernel, shape, config, timing)` triples in
+   `tuned_configs_<hardware_id>.json`.
+2. **`measure`** — replay the benchmark with every config discovered
+   during `collect`, on every shape, and record the resulting timings
+   in `measurements_<hardware_id>.csv`.  This step is what lets the
+   heuristic generator pick a small config subset that performs well
+   *across all shapes*, not just on the shape it was originally tuned
+   for.
+3. **`evaluate`** — fit a decision tree over the measurement matrix
+   and emit the heuristic file (see *Generated artifacts* below for
+   the layout).  Each tree leaf names a config index, and the
+   companion list of configs is the output of subset selection from
+   the measure phase.
+
+Useful runner flags (run `python -m helion.autotuner.aot_runner --help`
+for the full list):
+
+- `--kernel <name>` — restrict the workflow to specific kernels.
+- `--output-dir <dir>` — where to drop `tuned_configs_*.json`,
+  `measurements_*.csv`, and per-phase logs.
+- `--threshold` / `--max-configs` — performance target for subset
+  selection; trade off heuristic size vs. how close every shape gets to
+  its individually-tuned best config (default: at most 10x slowdown
+  vs. best, no more than 10 configs).
+
+You can also run any phase manually if you only need one:
+
+```bash
+HELION_AOT_MODE=collect HELION_AOT_DATA_DIR=./aot_data python my_benchmark.py
+HELION_AOT_MODE=measure HELION_AOT_DATA_DIR=./aot_data python my_benchmark.py
+# ...then call the heuristic generator directly via aot_runner.
+```
+
+### Generated artifacts
+
+The runner emits two kinds of output: per-run *data files* (collected
+configs, raw measurements, logs) under the data directory, and the
+*heuristic file* itself, which lands next to the kernel source so the
+AOT cache can find it at runtime.
+
+```
+.helion_aot/                                 # default --output-dir
+└── 20260505_120000_ab12cd/                  # one subdir per runner invocation
+    ├── logs/
+    │   ├── collect_<hardware_id>.log        # stdout/stderr of the collect phase
+    │   └── measure_<hardware_id>.log        # stdout/stderr of the measure phase
+    ├── tuned_configs_<hardware_id>.json     # collect output: best config per shape
+    ├── measurements_<hardware_id>.csv       # measure output: timing matrix
+    └── heuristic_summary_<hardware_id>.json # evaluate output: subset-selection report
+
+<your kernel source dir>/
+├── my_kernel.py                             # kernel source
+└── _helion_aot_my_kernel_<device>_<cc>.py   # generated heuristic (commit this)
+```
+
+`<hardware_id>` is `<device_kind>_<sanitized_device_name>_<runtime_version>`
+(e.g. `cuda_NVIDIA_B200_13.1`).  `<device>_<cc>` is the device kind and
+compute capability used for runtime lookup (e.g. `cuda_sm100`,
+`rocm_gfx950`).
+
+Only the heuristic file is meant to be checked in — it is the entire
+runtime artifact.  Everything under the data directory is disposable
+per-run state used to build the heuristic.
+
+### Heuristic file format
+
+The generated heuristic file is plain Python — no JSON, no pickled
+objects.  For a kernel `foo` it exposes two top-level functions:
+
+```python
+def key_foo(*args) -> int:
+    """Decision-tree-derived config index for the given args."""
+    ...
+
+def autotune_foo(*args) -> dict:
+    """Return the config dict for the given args."""
+    _C = [
+        {"block_sizes": [...], "num_warps": ...},  # config 0
+        {"block_sizes": [...], "num_warps": ...},  # config 1
+        # ...
+    ]
+    return _C[key_foo(*args)]
+```
+
+`key_foo` doubles as the runtime *cache key*: the
+`AOTAutotuneCache` stores compiled artifacts keyed on its return value,
+so once a config has been compiled for a given key the kernel call is
+just `dict-lookup → cached compiled function`.
+
+Because the file is plain Python, it is easy to inspect, hand-edit, or
+regenerate.  Helion ignores `_helion_aot_*.py` for ruff and pyrefly so
+they do not need to follow the project's lint rules.
+
+### Runtime lookup and compute-capability fallback
+
+At kernel-call time, `AOTAutotuneCache` looks for a heuristic file in
+this order:
+
+1. `$HELION_HEURISTIC_DIR` if set (useful for A/B-comparing heuristics
+   generated under different conditions).
+2. `_helion_aot_<kernel>_<device_kind>_<compute_capability>.py` next
+   to the kernel's source file.
+3. The same filename but with older compatible compute capabilities
+   within the same device family — e.g. on `sm120`, Helion tries
+   `sm120`, `sm100`, `sm90`, ... in order.  A single tuned heuristic
+   can therefore serve multiple GPU generations with the same ISA.
+
+If no file is found, the cache falls back to the kernel's default
+config and prints a one-time warning naming the AOT runner.
+
+### Pretuning a kernel for new hardware
+
+A heuristic file is specific to one device kind + compute capability —
+to add support for a new GPU, generate a fresh heuristic on that
+hardware and commit it alongside any existing files.  The recipe works
+for any GPU; the device-kind / compute-capability suffix is whatever
+{py:class}`~helion._hardware.HardwareInfo` reports for the
+target.
+
+#### Step-by-step
+
+1. **Get on the target GPU.**  The runner detects the device with
+   `torch.cuda.get_device_capability()` (or the ROCm / XPU equivalent)
+   and bakes that into the emitted filename, so this must run on the
+   actual hardware you are targeting — not the laptop you happen to
+   be editing on.
+
+2. **Confirm the kernel uses `@helion.aot_kernel(...)`**
+   (see *Quick start* above).
+
+3. **Run the AOT workflow.**  Point the runner at any benchmark script
+   that exercises the kernel across the shape sweep you want covered:
+
+   ```bash
+   # Tutorial example: tune layer_norm on the current GPU.
+   python -m helion.autotuner.aot_runner -- python pretuned_kernels/layer_norm/layer_norm.py
+
+   # User-authored kernel: same pattern.
+   python -m helion.autotuner.aot_runner -- python my_benchmark.py
+   ```
+
+   The three phases run back-to-back.  Plan for a long wall-clock —
+   `collect` runs full autotuning on every distinct shape, which is
+   typically 5–15 minutes per shape on a recent GPU.
+
+4. **Locate the emitted heuristic file.**  See *Generated artifacts* —
+   the heuristic file lands next to the kernel source (e.g.
+   `pretuned_kernels/layer_norm/_helion_aot_layer_norm_cuda_sm90.py`); the
+   data dir holds disposable intermediates.
+
+5. **Commit the heuristic file.**  Keep the existing pretuned files
+   for other compute capabilities — the runtime picks the right one
+   per GPU.
+
+6. **Verify.**  Re-run the benchmark on the target GPU; the
+   `[0s] Found cached config for <kernel>, skipping autotuning.` line
+   in the output confirms the new heuristic is being used.
+
+#### Adding shapes to the sweep
+
+If you add new shapes to the kernel's benchmark, regenerate the
+heuristic the same way — Helion does not extrapolate cleanly outside
+the shapes used during `collect`/`measure`.  Tuning on a sweep that
+covers the small / medium / large regimes you expect at serving time
+gives the decision tree the leverage it needs to generalize within
+those bounds.

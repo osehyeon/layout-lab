@@ -1,0 +1,181 @@
+Datasheet
+
+
+
+
+Powering the Next Generation of AI
+                                               Key Features
+
+
+                                               >
+
+
+                                               >
+
+                                               >
+
+
+NVIDIA DGX™                                    >
+
+
+                                               >
+
+                                               >
+
+
+                                               >           NVIDIA DGX
+                                                      ™     NVIDIA DGX
+                                                       ™
+
+
+                                               >
+
+
+
+One Platform for Develop-to-Deploy Pipelines
+Powerhouse of AI Performance                                                              Real-Time Large Language
+                                                                                          Model Inference
+
+                                                                                                                 70
+
+                                                                                                                 60                              58
+
+
+
+
+                                                                                         Output Tokens/sec/GPU
+                                                                                                                 50
+
+                                                                                                                 40
+                                                                                                                           15X
+                                                                                                                 30
+
+                                                                                                                 20
+
+                                                                                                                 10
+                                                                                                                           3.5
+                                                                                                                  0
+                                                                                                                       DGX H100              DGX B200
+Proven Infrastructure Standard                                                                                         GPT-MoE-1.8T Real-time Throughput
+
+
+
+
+                                                                                          Supercharged AI Training
+                                                                                          Performance
+                                                                                                                                                 3X
+                                                                                                                 3X
+
+
+
+
+Run Models, Automate the Essentials With NVIDIA                                                                  2X
+
+Mission Control
+                                                                                                                           1X
+                                                                                                                 1X
+
+
+
+
+                                                                                                                 0X
+                                                                                                                       DGX H100              DGX B200
+                                                                                                                      GPT-MoE-1.8T Model Training Speed-Up
+
+
+
+
+                                               ™
+
+
+
+
+                     NVIDIA AI Enterprise
+
+AI Practitioners
+
+                    NVIDIA Mission Control
+                                                    Seamless workload orchestration
+                       AI Workload Management
+                                                    with NVIDIA Run:ai technology
+
+                     Autonomous Recovery Engine
+                                                    and recovery
+
+                                                    Next-generation cluster management
+                    Advanced Cluster Provisioning
+                                                    for AI’s next frontiers
+
+                      Telemetry and Observability   Customizable dashboards
+
+
+                      Validation and Diagnostics    On-demand health checks
+
+
+ Enterprise IT
+
+                   AI Factory Infrastructure
+DGX B200 Technical Specifications
+
+GPU
+
+GPU Memory
+
+Performance
+
+NVIDIA® NVSwitch™
+
+NVIDIA NVLink Bandwidth
+
+System Power Usage
+
+CPU
+
+
+
+
+System Memory
+
+Networking
+                                     >
+
+
+                                     >
+
+Management Network
+
+
+
+
+Storage                             OS:
+
+
+
+Software
+
+
+
+
+Rack Units (RU)
+
+System Dimensions                   Height:
+
+                                    Width:
+
+                                    Length:
+
+Operating Temperature
+
+Enterprise Support
+
+
+
+
+                                              PNY Technologies Europe
+                                              9 rue Joseph Cugnot
+Ready to Get Started?                         33708 Mérignac cedex | France
+                                              T +33 (0)5 40 240 240 | pnypro@pny.eu
+
+
+www.pny.com/en-eu/
+

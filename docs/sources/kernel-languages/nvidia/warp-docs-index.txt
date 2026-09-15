@@ -1,0 +1,322 @@
+Skip to main content
+
+Back to top
+
+
+Warp 1.17.0
+
+
+
+	•	GitHub
+	•	PyPI
+
+
+Warp 1.17.0
+
+
+	•	GitHub
+	•	PyPI
+Table of Contents
+User Guide
+	•	Installation
+	•	Compatibility & Support
+	•	Basics
+	•	Runtime
+	•	Differentiability
+	•	Programming Model
+	•	
+	◦	Generics
+	◦	Tiles
+	◦	Code Generation
+	◦	C++ and CUDA Workflows
+	•	
+	•	Interoperability
+	•	
+	◦	PyTorch Interoperability
+	◦	JAX Interoperability
+	•	
+	•	Execution and Performance
+	•	
+	◦	Concurrency
+	◦	Memory Allocation and Access
+	◦	Profiling
+	◦	Deterministic Execution
+	◦	Reducing Compilation and Startup Time
+	•	
+	•	Configuration
+	•	Debugging
+	•	Limitations
+	•	FAQ
+Language Reference
+	•	Built-Ins
+API Reference
+	•	warp
+	•	warp.autograd
+	•	warp.build_experimental
+	•	warp.config
+	•	warp.fem
+	•	warp.optim
+	•	warp.render
+	•	warp.sparse
+	•	warp.types
+	•	warp.utils
+Domain Modules
+	•	Sparse Matrices
+	•	FEM Toolkit
+	•	Rendering
+Project
+	•	Contributing to Warp
+	•	Publications using Warp
+	•	Changelog
+
+
+
+NVIDIA Warp Documentation#
+Warp is a Python framework for GPU-accelerated simulation, robotics, and machine learning. Warp takes regular Python functions and JIT compiles them to efficient kernel code that can run on the CPU or GPU.
+Warp comes with a rich set of primitives for physics simulation, robotics, geometry processing, and more. Warp kernels are differentiable and can be used as part of machine-learning pipelines with frameworks such as PyTorch, JAX and Paddle.
+
+Quickstart#
+Install Warp from PyPI:
+$ pip install warp-lang
+For conda, nightly builds, CUDA 13 builds, building from source, and driver requirements, see Installation.
+Example Gallery#
+The warp/examples directory contains examples covering physics simulation, geometry processing, optimization, and tile-based GPU programming. Install the optional dependencies with pip install warp-lang[examples] and run them from the command line:
+python -m warp.examples.<example_subdir>.<example>
+warp/examples/core#
+
+
+
+
+dem
+fluid
+graph capture
+marching cubes
+
+
+
+
+mesh
+nvdb
+raycast
+raymarch
+
+
+
+
+sample_mesh
+sph
+torch
+wave
+
+
+
+
+2-D incompressible turbulence in a periodic box
+3-D FDTD Luneburg lens
+
+
+warp/examples/fem#
+
+
+
+
+diffusion 3d
+mixed elasticity
+apic fluid
+streamlines
+
+
+
+
+distortion energy
+taylor green
+kelvin helmholtz
+magnetostatics
+
+
+
+
+adaptive grid
+nonconforming contact
+darcy level-set optimization
+elastic shape optimization
+warp/examples/optim#
+
+
+
+
+diffray
+fluid checkpoint
+particle repulsion
+navier-stokes perturbation
+warp/examples/tile#
+
+
+
+
+mlp
+nbody
+mcgp
+
+User Guide
+	•	Installation
+	◦	Nightly Builds
+	◦	Conda Installation
+	◦	Installing from GitHub Releases
+	◦	CUDA Requirements
+	◦	Dependencies
+	◦	Building from Source
+	◦	Conda Environments
+	◦	Using Warp in Docker
+	◦	Using Warp in Omniverse
+	•	Compatibility & Support
+	◦	Platform compatibility
+	◦	Support policies
+	•	Basics
+	◦	Tutorial Notebooks
+	◦	Initialization
+	◦	Kernels
+	◦	Arrays
+	◦	User Functions
+	◦	User Structs
+	◦	Language Details
+	•	Runtime
+	◦	Kernels
+	◦	Arrays
+	◦	Data Types
+	◦	Constants
+	◦	Operators
+	◦	Devices
+	◦	Streams
+	◦	Events
+	◦	Graphs
+	◦	Spatial Computing Primitives
+	◦	Marching Cubes
+	◦	Profiling
+	◦	Allocation Tracking
+	◦	Interprocess Communication (IPC)
+	◦	LTO Cache
+	◦	Random Number Generation
+	•	Differentiability
+	◦	Array Overwrites
+	◦	Copying is Differentiable
+	◦	Jacobians
+	◦	Custom Gradient Functions
+	◦	Custom Native Functions
+	◦	grad()
+	◦	Debugging Gradients
+	◦	Limitations and Workarounds
+	•	Programming Model
+	◦	Guides in this section
+	◦	Python Scope and Kernel Scope
+	◦	Compilation Model
+	◦	Execution Models
+	•	Interoperability
+	◦	Guides in this section
+	◦	Quick Reference
+	◦	Pass Arrays Directly
+	◦	NumPy
+	◦	CuPy / Numba
+	◦	Paddle
+	◦	DLPack
+	•	Execution and Performance
+	◦	Guides in this section
+	•	Configuration
+	◦	Global Settings
+	◦	Module Settings
+	◦	Kernel Settings
+	•	Debugging
+	◦	Environment Diagnostics
+	◦	Printing Values
+	◦	Diagnostics and Logging
+	◦	Debug Mode Compilation
+	◦	Assertions
+	◦	Step-Through Debugging
+	◦	Generated Code
+	◦	Cross-Device Array Access
+	◦	CUDA Error Verification
+	◦	Detecting Non-Finite Values
+	◦	CUDA Toolkit Debugging Tools
+	◦	CPU Memory Error Detection with AddressSanitizer
+	•	Limitations
+	◦	Unsupported Features
+	◦	Kernels and User Functions
+	◦	Differentiability
+	◦	Arrays
+	◦	Structs
+	◦	Volumes
+	◦	Multiple Processes
+	◦	Scalar Math Functions
+	◦	Variable Scope
+	◦	Arrays in Structs
+	•	FAQ
+	◦	About Warp
+	◦	Installation and Compatibility
+	◦	Programming with Warp
+	◦	Devices, Memory, and Execution
+	◦	Differentiation and Interoperability
+	◦	Performance, Debugging, and Deployment
+	◦	Community and Support
+Language Reference
+	•	Built-Ins
+	◦	Scalar Math
+	◦	Vector Math
+	◦	Quaternion Math
+	◦	Transformations
+	◦	Spatial Math
+	◦	Tile Primitives
+	◦	Geometry
+	◦	Volumes
+	◦	Textures
+	◦	Random
+	◦	Utility
+	◦	Other
+	◦	Operators
+	◦	Code Generation
+API Reference
+	•	warp
+	•	warp.autograd
+	•	warp.build_experimental
+	•	warp.config
+	•	warp.fem
+	•	warp.optim
+	•	warp.render
+	•	warp.sparse
+	•	warp.types
+	•	warp.utils
+Domain Modules
+	•	Sparse Matrices
+	◦	Working with Sparse Matrices
+	◦	Iterative Linear Solvers
+	•	FEM Toolkit
+	◦	Integrands
+	◦	Basic Workflow
+	◦	Introductory Examples
+	◦	Advanced Usages
+	◦	Fields
+	◦	Operators
+	◦	Visualization
+	•	Rendering
+	◦	Standalone Renderers
+	◦	CUDA Graphics Interface
+Project
+	•	Contributing to Warp
+	•	Publications using Warp
+	•	Changelog
+
+Full Index
+next
+Installation
+On this page
+	•	Quickstart
+	•	Example Gallery
+	◦	warp/examples/core
+	◦	warp/examples/fem
+	◦	warp/examples/optim
+	◦	warp/examples/tile
+	◦	
+Edit on GitHub
+
+ 
+Privacy Policy | Your Privacy Choices | Terms of Service | Accessibility | Corporate Policies | Product Security | Contact
+Copyright © 2022-2026 NVIDIA Corporation. 

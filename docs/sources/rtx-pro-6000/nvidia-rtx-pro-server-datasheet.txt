@@ -1,0 +1,139 @@
+Datasheet
+
+
+
+
+NVIDIA RTX PRO Server
+NVIDIA Blackwell for the Enterprise.
+
+
+
+
+Overview
+                                                                                      Key Workloads
+NVIDIA RTX PRO™ Servers bring the breakthrough performance of the NVIDIA
+Blackwell architecture to every enterprise—accelerating the shift from CPU-based      > Physical and Industrial AI
+systems to efficient GPU-accelerated infrastructure.                                  > Rendering and 3D Graphics
+But this isn’t just a performance upgrade—it’s a new category of compute. RTX PRO     > Agentic AI
+Servers deliver a unified, high-performance computing platform capable of running
+                                                                                      > Generative AI
+any enterprise workload, on any IT stack, and across any NVIDIA software platform.
+From physical and industrial AI workloads, such as digital twins and robotics         > Scientific Computing
+simulation with NVIDIA Omniverse™, to visual computing and AI agents powered by
+NVIDIA AI Enterprise, RTX PRO Servers handle it all.                                  Supporting Technologies
+
+Equipped with either NVIDIA RTX PRO 6000 Blackwell Server Edition GPUs or             > NVIDIA Omniverse
+NVIDIA RTX PRO 4500 Blackwell Server Edition GPUs, RTX PRO Servers are                > NVIDIA AI Enterprise
+available in multiple configurations, including 2U and 4U air-cooled and 6U liquid-
+cooled configurations to meet the needs of space-constrained and high-density         > NVIDIA RTX vWS, vPC
+environments, without compromising performance.                                       > NVIDIA Run:ai
+
+                                                                                      > NVIDIA Spectrum-X
+
+                                                                                      > CUDA-X
+
+
+
+
+RTX PRO Server: 2U System Configuration | 8x RTX PRO 4500 Blackwell Server Edition
+
+
+
+
+                                                                                        NVIDIA RTX PRO Server | Datasheet | 1
+Accelerate Any Enterprise Workload
+Physical and Industrial AI
+NVIDIA RTX PRO Servers can accelerate the testing and optimization of physical
+AI with the NVIDIA Omniverse platform. With powerful visual computing and AI
+capabilities, RTX PRO Servers enable a wide range of industrial AI applications
+such as vision AI agents and full-fidelity digital twins. With powerful compute
+performance, RTX PRO Servers can accelerate the generation of physically based
+synthetic data for robotics and AV learning—enabling autonomous machines like
+robots and self-driving cars to perceive, understand, and perform complex actions
+in the real physical world.
+
+Visual Computing
+RTX PRO Servers support enterprise-grade visual computing at an entirely new level.
+Equipped with RTX PRO 6000 Blackwell Server Edition GPUs that feature fourth-gen
+RTX technology, they enable rapid rendering, accelerated ray tracing, and high-
+performance media processing—including advanced video encoding and decoding—
+making them ideal for intensive visual computing workloads, such as content
+creation pipelines, computer-aided design, media, and more.
+
+Enterprise AI
+With RTX PRO Servers and the NVIDIA AI Enterprise platform, organizations across
+industries can accelerate the development and deployment of production-grade AI
+solutions like AI agents, generative AI applications, and deep learning applications.
+With NVIDIA Blackwell architecture-based Tensor Cores and support for the second
+generation Transformer Engine, RTX PRO Servers deliver a massive leap in performance
+and efficiency for agentic AI, generative AI, and deep learning inference applications.
+
+Scientific Computing and Simulation
+The RTX PRO Servers are optimized for high-performance computing and complex
+scientific workloads through support for the NVIDIA CUDA-X™ library ecosystem.
+Researchers and developers across industries can run large-scale simulations, data
+analysis, and predictive modeling tasks with ease. From computer-aided engineering and
+genomics sequencing to fluid dynamics and data analytics, RTX PRO Servers provide
+powerful compute capabilities to accelerate the next wave of scientific innovation.
+
+
+Build AI Factories With RTX PRO Server
+The NVIDIA AI Factory Validated Design provides guidance for enterprises building
+AI factories with RTX PRO Servers from the ground up—and at scale. Along with the
+NVIDIA RTX PRO AI Factory Enterprise Reference Architecture, this validated design
+provides a full-stack blueprint inclusive of NVIDIA Accelerated Computing, NVIDIA
+networking, NVIDIA-Certified Storage, and NVIDIA enterprise software.
+
+It leverages a trusted ecosystem of partner solutions along the AI stack, all vetted
+and tested by NVIDIA to accelerate speed-to-value, boost performance, reduce TCO,
+and bolster enterprise-readiness across the AI stack.
+
+
+
+
+                                                                                          Liquid-Cooled RTX PRO Server:
+                                                                                          6U System Configuration | Up to 8x Liquid-Cooled RTX
+                                                                                          PRO 6000 Blackwell Server Edition
+
+
+
+
+                                                                                               NVIDIA RTX PRO Server | Datasheet | 2
+ Specifications
+ Chassis                                                                                                       2U, 4U, 6U (Liquid-Cooled)
+
+ GPU                                                                                 Up to 8x NVIDIA RTX PRO 6000 Blackwell Server Edition or
+                                                                                              RTX PRO 4500 Blackwell Server Edition
+
+ Networking (E/W)                                                                                NVIDIA ConnectX®-7 (2x 200GbE) or
+                                                                                                     NVIDIA Bluefield®-3140H or
+                                                                                            ConnectX-8 SuperNIC (1x 800GbE, 2x 400GbE) or
+                                                                                             ConnectX-8 SuperNIC with PCIe Gen 6 Switch
+
+ Networking (N/S)                                                                                                1x BlueField-3 (B3220)
+
+ CPU                                                                                                                2x Intel Xeon or
+                                                                                                                     2x AMD EPYC
+
+ Memory                                                                                      128 GB DDR5 ECC Per GPU (1 DIMM per channel)
+
+ Storage                                                                                                              2x 4 TB NVMe*
+                                                                                                                1x 1 TB NVMe boot drive
+ * Recommended Minimum
+
+
+
+
+RTX PRO Server: 2U System Configuration | 2x RTX PRO 6000 Blackwell Server Edition
+
+
+
+
+Ready to Get Started?
+To learn more about NVIDIA RTX PRO Server, visit:
+nvidia.com/en-us/data-center/products/rtx-pro-server
+© 2026 NVIDIA Corporation and affiliates. All rights reserved. NVIDIA, the NVIDIA logo, BlueField, ConnectX,
+CUDA-X, Omniverse, RTX, RTX PRO, and Spectrum-X are trademarks and/or registered trademarks of NVIDIA
+Corporation and affiliates in the U.S. and other countries. Other company and product names may be
+trademarks of the respective owners with which they are associated. 4915413. Mar26
+

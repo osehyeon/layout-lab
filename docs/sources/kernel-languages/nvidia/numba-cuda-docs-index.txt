@@ -1,0 +1,112 @@
+Skip to main content
+
+Back to top
+
+
+Numba CUDA
+
+
+
+
+Numba CUDA
+
+Table of Contents
+	•	User guide
+	•	
+	◦	Installation
+	◦	Writing CUDA Kernels
+	◦	Memory management
+	◦	Writing Device Functions
+	◦	Global Variables and Captured Values
+	◦	Supported Python features in CUDA Python
+	◦	CUDA Fast Math
+	◦	Supported Atomic Operations
+	◦	Cooperative Groups
+	◦	Random Number Generation
+	◦	Device management
+	◦	Examples
+	◦	Debugging Numba CUDA Programs with Visual Studio Code and CUDA GDB
+	◦	Debugging CUDA Python with the the CUDA Simulator
+	◦	GPU Reduction
+	◦	CUDA Ufuncs and Generalized Ufuncs
+	◦	Sharing CUDA Memory
+	◦	CUDA Array Interface (Version 3)
+	◦	External Memory Management (EMM) Plugin interface
+	◦	CUDA Bindings
+	◦	Calling foreign functions from Python kernels
+	◦	Compiling Python functions for use with other languages
+	◦	CUDA device call conventions
+	◦	On-disk Kernel Caching
+	◦	CUDA Minor Version Compatibility
+	◦	CUDA Frequently Asked Questions
+	•	
+	•	Reference documentation
+	•	
+	◦	CUDA Host API
+	◦	CUDA Kernel API
+	◦	Cache Hints for Memory Operations
+	◦	CUDA-Specific Types
+	◦	Memory Management
+	◦	Libdevice functions
+	◦	Environment Variables
+	•	
+
+
+
+Numba-CUDA#
+Numba-CUDA provides a CUDA target for the Numba Python JIT Compiler. It is used for writing SIMT kernels in Python, for providing Python bindings for accelerated device libraries, and as a compiler for user-defined functions in accelerated libraries like RAPIDS.
+	•	To install Numba-CUDA, see: Installation.
+	•	To get started writing CUDA kernels in Python with Numba, see Writing CUDA Kernels.
+	•	Browse the Examples to see a variety of use cases of Numba-CUDA.
+Maintenance Notice#
+Note
+Numba-CUDA is in maintenance mode. Moving forward, we intend to support only security issues and critical bug fixes through the lifetime of CUDA 13. New feature development is targeted towards Numba-CUDA-MLIR, and we recommend upgrading to Numba-CUDA-MLIR as soon as practical.
+For migration guidance, see Migration from Numba / Numba-CUDA.
+Contents#
+	•	User guide
+	◦	Installation
+	◦	Writing CUDA Kernels
+	◦	Memory management
+	◦	Writing Device Functions
+	◦	Global Variables and Captured Values
+	◦	Supported Python features in CUDA Python
+	◦	CUDA Fast Math
+	◦	Supported Atomic Operations
+	◦	Cooperative Groups
+	◦	Random Number Generation
+	◦	Device management
+	◦	The Device List
+	◦	Device UUIDs
+	◦	Examples
+	◦	Debugging Numba CUDA Programs with Visual Studio Code and CUDA GDB
+	◦	Debugging CUDA Python with the the CUDA Simulator
+	◦	GPU Reduction
+	◦	CUDA Ufuncs and Generalized Ufuncs
+	◦	Sharing CUDA Memory
+	◦	CUDA Array Interface (Version 3)
+	◦	External Memory Management (EMM) Plugin interface
+	◦	CUDA Bindings
+	◦	Calling foreign functions from Python kernels
+	◦	Compiling Python functions for use with other languages
+	◦	CUDA device call conventions
+	◦	On-disk Kernel Caching
+	◦	CUDA Minor Version Compatibility
+	◦	CUDA Frequently Asked Questions
+	•	Reference documentation
+	◦	CUDA Host API
+	◦	CUDA Kernel API
+	◦	Cache Hints for Memory Operations
+	◦	CUDA-Specific Types
+	◦	Memory Management
+	◦	Libdevice functions
+	◦	Environment Variables
+next
+User guide
+On this page
+	•	Numba-CUDA
+	•	Maintenance Notice
+	•	Contents
+
+ 
+Privacy Policy | Your Privacy Choices | Terms of Service | Accessibility | Corporate Policies | Product Security | Contact
+Copyright © 2012-2024 Anaconda Inc. 2024, NVIDIA Corporation.. 

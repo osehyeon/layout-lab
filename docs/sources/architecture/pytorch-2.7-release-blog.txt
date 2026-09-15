@@ -1,0 +1,244 @@
+PyTorch 2.7 Release – PyTorch
+Skip to main content
+Join us at PyTorch Conference North America · Oct 20-21 · San Jose, CA
+Search
+Close Search
+search
+Menu
+Learn
+Get Started
+Tutorials
+Learn the Basics
+PyTorch Recipes
+Intro to PyTorch – YouTube Series
+Videos
+PyTorch Certification
+Community
+Landscape
+Join the Ecosystem
+Community Hub
+Forums
+Developer Resources
+Events
+Working Groups
+Meeting Calendar
+Contributor Awards
+Ambassadors
+Projects
+PyTorch
+Executorch
+vLLM
+DeepSpeed
+Ray
+Helion
+Safetensors
+Host Your Project
+Docs
+PyTorch
+Domains
+Blog & News
+Blog
+Announcements
+Case Studies
+Newsletter
+About
+PyTorch Foundation
+Members
+Governing Board
+Technical Advisory Council
+Cloud Credit Program
+Staff
+Contact
+Brand Guidelines
+JOIN
+search
+Blog
+PyTorch 2.7 Release
+By
+PyTorch Team
+April 23, 2025
+May 15th, 2025
+No Comments
+We are excited to announce the release of PyTorch® 2.7 (
+release notes
+)! This release features:
+support for the
+NVIDIA Blackwell GPU architecture
+and pre-built wheels for
+CUDA 12.8
+across Linux x86 and arm64 architectures.
+torch.compile
+support for Torch Function Modes which enables users to override any *torch.** operation to implement custom user-defined behavior.
+Mega Cache which allows users to have end-to-end portable caching for torch;
+new features for FlexAttention – LLM first token processing, LLM throughput mode optimization and Flex Attention for Inference.
+This release is composed of 3262 commits from 457 contributors since PyTorch 2.6. We want to sincerely thank our dedicated community for your contributions. As always, we encourage you to try these out and report any issues as we improve 2.7. More information about how to get started with the PyTorch 2-series can be found at our
+Getting Started
+page.
+Beta
+Prototype
+Torch.Compile support for Torch Function Modes
+NVIDIA Blackwell Architecture Support
+Mega Cache
+PyTorch Native Context Parallel
+Enhancing Intel GPU Acceleration
+FlexAttention LLM first token processing on x86 CPUs
+FlexAttention LLM throughput mode optimization on x86 CPUs
+Foreach Map
+Flex Attention for Inference
+Prologue Fusion Support in Inductor
+*To see a full list of public feature submissions click
+here
+.
+BETA FEATURES
+[Beta] Torch.Compile support for Torch Function Modes
+This feature enables users to override any *torch.** operation to implement custom user-defined behavior. For example, ops can be rewritten to accommodate a specific backend. This is used in FlexAttention to re-write indexing ops.
+See the
+tutorial
+for more information.
+[Beta] Mega Cache
+Mega Cache allows users to have end-to-end portable caching for torch. The intended use case is after compiling and executing a model, the user calls
+torch.compiler.save_cache_artifacts()
+which will return the compiler artifacts in a portable form. Later, potentially on a different machine, the user may call
+torch.compiler.load_cache_artifacts()
+with these artifacts to pre-populate the torch.compile caches in order to jump-start their cache.
+See the
+tutorial
+for more information.
+PROTOTYPE FEATURES
+[Prototype] NVIDIA Blackwell Architecture Support
+PyTorch 2.7 introduces support for NVIDIA’s new Blackwell GPU architecture and ships pre-built wheels for CUDA 12.8. For more details on CUDA 12.8 see
+CUDA Toolkit Release
+.
+Core components and libraries including cuDNN, NCCL, and CUTLASS have been upgraded to ensure compatibility with Blackwell platforms.
+PyTorch 2.7 includes Triton 3.3, which adds support for the Blackwell architecture with torch.compile compatibility.
+To utilize these new features, install PyTorch with CUDA 12.8 using:
+pip install torch==2.7.0 –index-url https://download.pytorch.org/whl/cu128
+More context can also be found
+here
+.
+[Prototype] PyTorch Native Context Parallel
+PyTorch Context Parallel API allows users to create a Python context so that every *torch.nn.functional.scaled_dot_product_attention() *call within will run with context parallelism. Currently, PyTorch Context Parallel supports 3 attention backends: 1. Flash attention; 2. Efficient attention; and 3. cuDNN attention.
+As an example, this is
+used within TorchTitan as the Context Parallel solution for LLM training
+.
+See
+tutorial
+here.
+[Prototype] Enhancing Intel GPU Acceleration
+This latest release introduces enhanced performance optimizations for Intel GPU architectures. These improvements accelerate workloads across various Intel GPUs through the following key enhancements:
+Enable torch.compile on Windows 11 for Intel GPUs, delivering the performance advantages over eager mode as on Linux.
+Optimize the performance of PyTorch 2 Export Post Training Quantization (PT2E) on Intel GPU to provide a full graph mode quantization pipelines with enhanced computational efficiency.
+Improve Scaled Dot-Product Attention (SDPA) inference performance with bfloat16 and float16 to accelerate attention-based models on Intel GPUs.
+Enable AOTInuctor and torch.export on Linux to simplify deployment workflows.
+Implement more Aten operators to enhance the continuity of operators execution on Intel GPU and increase the performance on Intel GPU in eager mode.
+Enable profiler on both Windows and Linux to facilitate model performance analysis.
+Expand the Intel GPUs support to
+Intel® Core™ Ultra Series 2 with Intel® Arc™ Graphics
+, and
+Intel® Arc™ B-Series graphics
+on both Windows and Linux.
+For more information regarding Intel GPU support, please refer to
+Getting Started Guide
+.
+See also the tutorials
+here
+and
+here
+.
+[Prototype] FlexAttention LLM first token processing on x86 CPUs
+FlexAttention x86 CPU support was first introduced in PyTorch 2.6, offering optimized implementations — such as PageAttention, which is critical for LLM inference—via the TorchInductor C++ backend. In PyTorch 2.7, more attention variants for first token processing of LLMs are supported. With this feature, users can have a smoother experience running FlexAttention on x86 CPUs, replacing specific
+scaled_dot_product_attention
+operators with a unified FlexAttention API, and benefiting from general support and good performance when using torch.compile.
+[Prototype] FlexAttention LLM throughput mode optimization
+The performance of FlexAttention on x86 CPUs for LLM inference throughput scenarios has been further improved by adopting the new C++ micro-GEMM template ability. This addresses the performance bottlenecks for large batch size scenarios present in PyTorch 2.6. With this enhancement, users can transparently benefit from better performance and a smoother experience when using FlexAttention APIs and torch.compile for LLM throughput serving on x86 CPUs.
+[Prototype] Foreach Map
+This feature uses torch.compile to allow users to apply any pointwise or user-defined function (e.g. torch.add) to lists of tensors, akin to the existing *torch.
+foreach
+** ops. The main advantage over the existing *torch.
+foreach
+** ops is that any mix of scalars or lists of tensors can be supplied as arguments, and even user-defined python functions can be lifted to apply to lists of tensors. Torch.compile will automatically generate a horizontally fused kernel for optimal performance.
+See
+tutorial
+here.
+[Prototype] Flex Attention for Inference
+In release 2.5.0,
+FlexAttention
+* torch.nn.attention.flex_attention* was introduced for ML researchers who’d like to customize their attention kernels without writing kernel code. This update introduces a decoding backend optimized for inference, supporting GQA and PagedAttention, along with feature updates including nested jagged tensor support, performance tuning guides and trainable biases support.
+[Prototype] Prologue Fusion Support in Inductor
+Prologue fusion optimizes matrix multiplication (matmul) operations by fusing operations that come before the matmul into the matmul kernel itself, improving performance by reducing global memory bandwidth.
+Comments are closed.
+-->
+Docs
+Access comprehensive developer documentation for PyTorch
+View Docs ›
+Tutorials
+Get in-depth tutorials for beginners and advanced developers
+View Tutorials ›
+Resources
+Find development resources and get your questions answered
+View Resources ›
+Stay in touch
+for updates, event info, and the latest news
+By submitting this form, I consent to receive marketing emails from the LF and its projects regarding their events, training, research, developments, and related announcements. I understand that I can unsubscribe at any time using the links in the footers of the emails I receive.
+Privacy Policy
+.
+x-twitter
+facebook
+linkedin
+youtube
+github
+slack
+discord
+© 2026 PyTorch. Copyright © The Linux Foundation®. All rights reserved. The Linux Foundation has registered trademarks and uses trademarks. For more information, including terms of use, privacy policy, and trademark usage, please see our
+Policies
+page.
+Trademark Usage
+.
+Privacy Policy
+Close Menu
+Learn
+Get Started
+Tutorials
+Learn the Basics
+PyTorch Recipes
+Intro to PyTorch – YouTube Series
+Videos
+PyTorch Certification
+Community
+Landscape
+Join the Ecosystem
+Community Hub
+Forums
+Developer Resources
+Events
+Working Groups
+Meeting Calendar
+Contributor Awards
+Ambassadors
+Projects
+PyTorch
+Executorch
+vLLM
+DeepSpeed
+Ray
+Helion
+Safetensors
+Host Your Project
+Docs
+PyTorch
+Domains
+Blog & News
+Blog
+Announcements
+Case Studies
+Newsletter
+About
+PyTorch Foundation
+Members
+Governing Board
+Technical Advisory Council
+Cloud Credit Program
+Staff
+Contact
+Brand Guidelines
+JOIN

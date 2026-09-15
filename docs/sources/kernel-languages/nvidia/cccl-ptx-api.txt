@@ -1,0 +1,436 @@
+Skip to main content
+
+Back to top
+
+
+CUDA Core Compute Libraries
+
+
+
+	•	GitHub
+
+
+CUDA Core Compute Libraries
+
+
+	•	GitHub
+Table of Contents
+	•	CCCL C++ Libraries
+	•	
+	◦	libcu++
+	◦	
+	▪	Overview
+	▪	Setup
+	▪	
+	▪	Getting libcu++
+	▪	Building & Testing libcu++
+	▪	
+	▪	Standard API
+	▪	
+	▪	Algorithms Library
+	▪	C Library
+	▪	Concepts Library
+	▪	Container Library
+	▪	Execution Library
+	▪	Numerics Library
+	▪	Ranges Library
+	▪	Synchronization Library
+	▪	Time Library
+	▪	Type Support Library
+	▪	Utility Library
+	▪	
+	▪	Extended API
+	▪	
+	▪	Macros
+	▪	Bit
+	▪	Execution model
+	▪	Exception Handling
+	▪	Memory model
+	▪	Thread Groups
+	▪	Synchronization Primitives
+	▪	Asynchronous Operations
+	▪	Memory access properties
+	▪	Functional
+	▪	Fancy Iterators
+	▪	Type traits
+	▪	Vector Tuple Protocol
+	▪	Numeric
+	▪	SIMD
+	▪	Random
+	▪	Memory
+	▪	Memory Resources
+	▪	Math
+	▪	Mdspan
+	▪	Tensor Memory Accelerator (TMA)
+	▪	Warp
+	▪	Utility
+	▪	Work stealing
+	▪	
+	▪	Runtime
+	▪	
+	▪	CUDA Runtime interactions
+	▪	Streams
+	▪	Events
+	▪	Algorithm
+	▪	Devices
+	▪	Hierarchy
+	▪	Launch
+	▪	Buffer
+	▪	Memory Pools
+	▪	Legacy resources
+	▪	
+	▪	PTX API
+	▪	
+	▪	Examples
+	▪	PTX Instructions
+	▪	PTX Pragmas
+	▪	
+	▪	CUDA Tile support
+	▪	API reference
+	◦	
+	◦	CUB
+	◦	
+	▪	Overview
+	▪	Thread-level Primitives
+	▪	Warp-Wide “Collective” Primitives
+	▪	
+	▪	Warp-wide Primitives
+	▪	
+	▪	Block-Wide “Collective” Primitives
+	▪	
+	▪	Block-wide Primitives
+	▪	
+	▪	Device-Wide Primitives
+	▪	
+	▪	Device-wide Primitives
+	▪	
+	▪	Execution Environments
+	▪	Determinism
+	▪	Benchmarks
+	▪	Tunings
+	▪	Automated Tuning Infrastructure
+	▪	API reference
+	▪	Developer Overview
+	▪	
+	▪	Thread-level
+	▪	Warp-level
+	▪	Block-scope
+	▪	Device-scope
+	▪	CUB Tests
+	▪	
+	◦	
+	◦	Thrust
+	◦	
+	▪	Overview
+	▪	Algorithms
+	▪	
+	▪	Copying
+	▪	Merging
+	▪	Prefix sums
+	▪	Reductions
+	▪	Reordering
+	▪	Searching
+	▪	Set Operations
+	▪	Sorting
+	▪	Transformations
+	▪	
+	▪	Containers
+	▪	
+	▪	thrust::host_vector
+	▪	thrust::device_vector
+	▪	thrust::universal_host_pinned_vector
+	▪	thrust::universal_vector
+	▪	
+	▪	Function Objects
+	▪	
+	▪	Function Object Adaptors
+	▪	Placeholder Objects
+	▪	Function Objects
+	▪	
+	▪	Iterators
+	▪	
+	▪	thrust::make_transform_input_output_iterator
+	▪	thrust::make_constant_iterator
+	▪	thrust::make_counting_iterator
+	▪	thrust::make_permutation_iterator
+	▪	thrust::make_tabulate_output_iterator
+	▪	thrust::make_strided_iterator
+	▪	thrust::make_transform_output_iterator
+	▪	thrust::make_discard_iterator
+	▪	thrust::make_zip_iterator
+	▪	thrust::make_transform_iterator
+	▪	thrust::make_shuffle_iterator
+	▪	thrust::iterator_traversal_t
+	▪	thrust::iterator_system_t
+	▪	thrust::iterator_reference_t
+	▪	thrust::iterator_pointer_t
+	▪	thrust::iterator_traits
+	▪	thrust::iterator_difference_t
+	▪	thrust::iterator_value_t
+	▪	thrust::bidirectional_host_iterator_tag
+	▪	thrust::random_access_host_iterator_tag
+	▪	thrust::output_host_iterator_tag
+	▪	thrust::input_host_iterator_tag
+	▪	thrust::forward_host_iterator_tag
+	▪	thrust::retag
+	▪	thrust::reinterpret_tag
+	▪	thrust::bidirectional_traversal_tag
+	▪	thrust::forward_traversal_tag
+	▪	thrust::incrementable_traversal_tag
+	▪	thrust::no_traversal_tag
+	▪	thrust::random_access_traversal_tag
+	▪	thrust::single_pass_traversal_tag
+	▪	
+	▪	Memory Management
+	▪	
+	▪	Allocators
+	▪	Memory Resources
+	▪	Memory Management
+	▪	thrust::device_pointer_cast
+	▪	thrust::device_free
+	▪	thrust::device_delete
+	▪	thrust::device_malloc
+	▪	thrust::malloc
+	▪	thrust::return_temporary_buffer
+	▪	thrust::swap
+	▪	thrust::device_new
+	▪	thrust::free
+	▪	thrust::raw_pointer_cast
+	▪	thrust::raw_reference_cast
+	▪	thrust::get_temporary_buffer
+	▪	
+	▪	Numerics
+	▪	
+	▪	Complex Numbers
+	▪	thrust::operator<<
+	▪	thrust::sqrt
+	▪	thrust::sinh
+	▪	thrust::asin
+	▪	thrust::cosh
+	▪	thrust::acosh
+	▪	thrust::abs
+	▪	thrust::log10
+	▪	thrust::atanh
+	▪	thrust::cos
+	▪	thrust::exp
+	▪	thrust::asinh
+	▪	thrust::pow
+	▪	thrust::norm
+	▪	thrust::operator/
+	▪	thrust::arg
+	▪	thrust::log
+	▪	thrust::operator*
+	▪	thrust::proj
+	▪	thrust::tan
+	▪	thrust::operator>>
+	▪	thrust::conj
+	▪	thrust::polar
+	▪	thrust::operator==
+	▪	thrust::operator-
+	▪	thrust::acos
+	▪	thrust::operator!=
+	▪	thrust::tanh
+	▪	thrust::atan
+	▪	thrust::sin
+	▪	thrust::operator+
+	▪	
+	▪	Parallel Execution Policies
+	▪	
+	▪	Parallel Execution Policies
+	▪	thrust::device
+	▪	thrust::host
+	▪	
+	▪	Random Number Generators
+	▪	
+	▪	Random Number Engines with Predefined Parameters
+	▪	Random Number Distributions
+	▪	Random Number Engines
+	▪	Random Number Engine Adaptors
+	▪	
+	▪	System
+	▪	
+	▪	Systems
+	▪	System Diagnostics
+	▪	
+	▪	Utility
+	▪	
+	▪	Pair
+	▪	Tuple
+	▪	Type Traits
+	▪	
+	▪	API reference
+	▪	Developer Overview
+	▪	
+	▪	Developer CMake Options
+	▪	Thrust systems
+	▪	
+	◦	
+	◦	CUDA Experimental
+	◦	
+	▪	Overview
+	▪	Containers library
+	▪	
+	▪	cuda::experimental::uninitialized_buffer
+	▪	
+	▪	Graphs library
+	▪	
+	▪	cuda::experimental::graph
+	▪	cuda::experimental::graph_builder
+	▪	cuda::experimental::graph_builder_ref
+	▪	cuda::experimental::graph_memory_resource
+	▪	cuda::experimental::graph_node_ref
+	▪	cuda::experimental::stf::graphed_interface_of
+	▪	cuda::experimental::stf::graphed_interface_of< mdspan< T, P… > >
+	▪	cuda::experimental::stf::graphed_interface_of< scalar_view< T > >
+	▪	cuda::experimental::stf::graphed_interface_of< void_interface >
+	▪	
+	▪	Places
+	▪	CUDASTF
+	▪	
+	▪	Implementation of the matrix class
+	▪	Lower-level API
+	▪	
+	▪	API reference
+	◦	
+	◦	Tensor Memory Accelerator (TMA)
+	◦	Determinism
+	◦	CCCL configuration macros
+	◦	CCCL 2.x ‐ CCCL 3.0 migration guide
+	◦	CCCL Development Guide
+	◦	
+	▪	CCCL C++ Coding Guidelines
+	▪	CCCL Internal Macros
+	▪	CCCL Testing Utilities
+	▪	Build and Bisect Utilities
+	▪	Symbol Visibility
+	▪	
+	▪	Host Stub Visibility Issue
+	▪	Device Kernel Visibility Issue
+	▪	Linking TUs compiled with different architectures
+	▪	
+	▪	General Debugging
+	◦	
+	•	
+	•	CCCL Python Libraries
+	•	
+	◦	Setup and Installation
+	◦	cuda.compute: Parallel Computing Primitives
+	◦	
+	▪	Overview
+	▪	cuda.compute Developer Overview
+	◦	
+	◦	cuda.stf._experimental: Sequential Task Flow
+	◦	Resources
+	◦	API Reference
+	◦	
+	▪	cuda.compute API Reference
+	▪	cuda.stf._experimental API Reference
+	◦	
+	•	
+	•	Contributor Docs
+	•	
+	◦	How Tos
+	◦	
+	▪	Install, Build, Test
+	▪	Build and run targeted tests
+	▪	Launching a container
+	▪	Using CMake Presets via VS Code GUI extension
+	▪	Creating a Pull Request
+	▪	Reproducing CI locally
+	▪	Override matrix
+	▪	Adding a build target
+	◦	
+	◦	Code of Conduct
+	◦	License
+	•	
+	•	Maintainer Docs
+	•	
+	◦	How Tos
+	◦	
+	▪	How to commit fixes to release branches (backport process)
+	▪	Run compile-time benchmarks
+	▪	How To Plan Work with GitHub Issues
+	▪	Adding CI coverage
+	▪	Adding a new devcontainer toolchain
+	◦	
+	◦	References
+	◦	
+	▪	Git Methodology
+	▪	CodeRabbit
+	▪	Compile-time benchmark reference
+	◦	
+	•	
+	•	Infrastructure
+	•	
+	◦	CI Reference
+	◦	
+	▪	CI overview
+	▪	Change detection
+	▪	matrix.yaml reference
+	▪	CI scripts
+	▪	Artifact system
+	▪	GitHub Actions workflows
+	▪	Skip tags
+	◦	
+	◦	CMake Reference
+	◦	
+	▪	Preset reference
+	▪	CMake helper modules
+	▪	Architecture flags
+	◦	
+	◦	Devcontainer Reference
+	◦	
+	▪	Devcontainer overview
+	▪	launch.sh reference
+	◦	
+	•	
+
+	•	
+	•	CCCL C++ Libraries
+	•	libcu++
+	•	PTX API
+
+PTX API#
+The cuda::ptx namespace contains functions that map one-to-one to PTX instructions. These can be used for maximal control of the generated code, or to experiment with new hardware features before a high-level C++ API is available.
+	•	Examples
+	•	PTX Instructions
+	•	PTX Pragmas
+Versions and compatibility#
+The cuda/ptx header is intended to present a stable API within one major version of the CTK on a best effort basis. This means that:
+	•	All functions are marked static inline.
+	•	The type of a function parameter can be changed to be more generic if that means that code that called the original version can still be compiled.
+	•	Good exposure of the PTX should be high priority. If, at a new major version, we face a difficult choice between breaking backward-compatibility and an improvement of the PTX exposure, we will tend to the latter option more easily than in other parts of libcu++.
+The API does not guarantee stability of template parameters. The order and number of template parameters may change. Use arguments to driver overload resolution as in the code below to ensure forward-compatibility:
+// Use arguments to drive overload resolution:
+cuda::ptx::mbarrier_arrive_expect_tx(cuda::ptx::sem_release, cuda::ptx::scope_cta, cuda::ptx::space_shared, &bar, 1);
+
+// Specifying templates directly is not forward-compatible, as order and number
+// of template parameters may change in a minor release:
+cuda::ptx::mbarrier_arrive_expect_tx<cuda::ptx::sem_release_t>(
+  cuda::ptx::sem_release, cuda::ptx::scope_cta, cuda::ptx::space_shared, &bar, 1
+);
+PTX ISA version and compute capability. Each binding notes under which PTX ISA version and SM version it may be used. Example:
+// mbarrier.arrive.shared::cta.b64 state, [addr]; // 1.  PTX ISA 70, SM_80
+__device__ inline uint64_t mbarrier_arrive(
+  cuda::ptx::sem_release_t sem,
+  cuda::ptx::scope_cta_t scope,
+  cuda::ptx::space_shared_t space,
+  uint64_t* addr);
+To check if the current compiler is recent enough, use:
+#if __cccl_ptx_isa >= 700
+cuda::ptx::mbarrier_arrive(cuda::ptx::sem_release, cuda::ptx::scope_cta, cuda::ptx::space_shared, &bar, 1);
+#endif
+Ensure that you only call the function when compiling for a recent enough compute capability (SM version), like this:
+NV_IF_TARGET(NV_PROVIDES_SM_80,(
+  cuda::ptx::mbarrier_arrive(cuda::ptx::sem_release, cuda::ptx::scope_cta, cuda::ptx::space_shared, &bar, 1);
+));
+For more information on which compilers correspond to which PTX ISA, see the PTX ISA release notes.
+previous
+Legacy resources
+next
+Examples
+On this page
+	•	Versions and compatibility
+
+Copyright © 2026, NVIDIA Corporation. 
+Created using Sphinx 9.1.0. 

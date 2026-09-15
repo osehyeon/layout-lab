@@ -1,0 +1,634 @@
+                                         Dissecting the NVIDIA Blackwell Architecture with
+                                                         Microbenchmarks
+                                                      Aaron Jarmusch                                Nathan Graddon                           Sunita Chandrasekaran
+                                         dept. of Computer Information Sciences dept. of Computer Information Sciences) dept. of Computer Information Sciences)
+                                                  University of Delaware                 University of Delaware                  University of Delaware
+                                                      Newark, US                              Newark, US                              Newark, US
+                                                         ORCID                                                                schandra@udel.edu or ORCID
+
+
+
+                                            Abstract—                                                           roofline models [2], analytical performance modeling [3], and
+
+
+
+
+arXiv:2507.10789v2 [cs.DC] 21 Jul 2025
+                                            The rapid development in scientific research provides a need        cache stall predication [4], to list a few, have all been used to
+                                         for more compute power, which is partly being solved by                provide insights into these accelerators to gain the best per-
+                                         GPUs. This paper presents a microarchitectural analysis of
+                                         the modern NVIDIA Blackwell architecture by studying GPU               formance for specific applications. Though, another approach
+                                         performance features with thought through microbenchmarks.             involves dissecting GPU architectures at the microarchitectural
+                                         We unveil key subsystems, including the memory hierarchy, SM           level to identify compute-dependent features. However, this
+                                         execution pipelines, and the SM sub-core units, including the          strategy is often hindered by the lack of public documentation
+                                         5th generation tensor cores supporting FP4 and FP6 precisions.         on modern commercial GPUs, which limits the depth of a
+                                         To understand the different key features of the NVIDIA GPU,
+                                         we study latency, throughput, cache behavior, and scheduling           thorough analysis.
+                                         details, revealing subtle tuning metrics in the design of Blackwell.      Academic studies have studied the inner workings of
+                                         To develop a comprehensive analysis, we compare the Blackwell          NVIDIA’s earlier architectures [5]–[9]. NVIDIA’s Hopper
+                                         architecture with the previous Hopper architecture by using the        (chip name GH100) [10] and Blackwell (chip name GB203)
+                                         GeForce RTX 5080 and H100 PCIe, respectively. We evaluate              [11] architectures represent two ends of their design. The
+                                         and compare results, presenting both generational improvements
+                                         and performance regressions. Additionally, we investigate the          GH100 is optimized for large-scale AI training and scientific
+                                         role of power efficiency and energy consumption under varied           simulations [12], while the GB203 targets real-time graphics
+                                         workloads. Our findings provide actionable insights for applica-       and inference workloads in power-constrained environments
+                                         tion developers, compiler writers, and performance engineers to        [13]. Although these GPUs share a similar layout, they diverge
+                                         optimize workloads on Blackwell-based platforms, and contribute        significantly in terms of hardware configuration and memory
+                                         new data to the growing research on GPU architectures.
+                                            Index Terms—Blackwell, GPU, Microbenchmark, HPC                     hierarchy.
+                                                                                                                   This paper presents a microarchitectural comparison of
+                                                               I. I NTRODUCTION                                 the GH100 and GB203 GPUs with a basis of real-world
+                                            With recent and rapid advancements in Artificial Intelli-           performance subsystems, such as shared memory, L1 and
+                                         gence (AI), GPUs have become a compelling resource for                 L2 cache behavior, core execution pipelines, and tensor core
+                                         accelerating machine learning and high-performance comput-             instruction throughput. Our work presents a cohesive analysis
+                                         ing (HPC) workloads. Their massively parallel architecture             with designed microbenchmarks in PTX and CUDA to reveal
+                                         makes them well-suited for a wide range of applications                subtle yet important differences in the behavior of these
+                                         spanning several domains. Offering significant improvements            architectures under stress, especially in compute-bound and
+                                         in computing capabilities for applications that once required          memory-bound applications.
+                                         days, or even years, of computation can now be solved in a                A unique aspect of this comparison is revealed in the
+                                         matter of hours or minutes. This shift underscores the growing         intended purposes of these GPUs. The GH100 equipped with
+                                         demand for powerful, efficient GPUs in both scientific and             HBM2e memory and high SM count, tailored for maximum
+                                         industrial research.                                                   throughput and data locality in AI training. On the other hand,
+                                            Over the past decade, these hardware accelerators have              the GB203 trades cache size and double-precision capability
+                                         become increasingly competitive. Vendors such as NVIDIA,               to achieve higher clock rates and efficiency within a consumer-
+                                         AMD, Intel, and Google have each introduced specialized ac-            friendly GPU. By analyzing the response of each architecture
+                                         celerators, from Tensor Processing Units (TPUs) to customized          to instruction-level parallelism, memory coalescing patterns,
+                                         GPUs, conformed to specific computational needs. With such             and warp scheduling pressure, we aim to provide insight
+                                         a wide range of options, a natural question becomes apparent.          into the core principles of scalability and specialization that
+                                         How do we determine which architecture best suits a given              underscores NVIDIA’s Blackwell architecture for practical
+                                         workload?                                                              insights for application developers, performance engineers,
+                                            Many researchers have developed a variety of tools and              and compiler creators.
+                                         methodologies to provide a solution. Application profiling [1],           The key contributions of this work are as follows:
+                                                                                              GH100                  GB203
+  •  Develop a new set of microbenchmarks to evaluate key                  Architecture       Hopper                Blackwell
+     components of the NVIDIA Blackwell architecture, with                  GPU Name         H100 PCIe         RTX GeForce 5080
+                                                                           FP32 per SM          128         Unified INT32/FP32 Unit
+     a comparison to the previous Hopper generation GPUs.                 INT32 per SM           64         Unified INT32/FP32 Unit
+   • Perform an in-depth analysis of the memory hierarchy                  FP64 per SM           64                     2
+                                                                            tensor cores      4th gen    5th gen (supports FP4 and FP6)
+     and Streaming Multiprocessor (SM) subunits, including              Transformer Engine    1st gen                2nd gen
+     the next-generation tensor cores, unified INT32/FP32
+                                                                                              TABLE I
+     cores, and FP64 execution cores.                                   T HE EXECUTION UNITS ON THE GH100 AND GB203 GPU S .
+   • Provide performance guidelines to software as well as
+                                                                        Memory Unit                  GH100                GB203
+     application developers such that they effectively tap into         L0 i-cache                   separate partition   unified
+     the rich benefits of the hardware.                                 Register File Size (KB/SM)   256                  256
+                                                                        L1 cache Size (KB/SM)        256 (unified)        128 (unified)
+   • Explore the behavior and performance implications of               Shared Memory Size (KB/SM)   228 (unified)        (unified)
+     newly supported low-precision floating-point datatypes,            L2 Cache (Size MB/SM)        50 (2 partitions)    65 (1 partition)
+                                                                        Global Memory (GB)           80 (HBM2e)           16 (GDDR7)
+     FP4 and FP6, within Blackwell’s tensor cores.
+                                                                                             TABLE II
+   We are unable to share the code at this time due to the           T HE CACHE HIERARCHY AND PARTITION SIZES OF THE GH100 AND
+blind-review policy, but we plan to open-source it post the                                   GB203.
+review process and the outcome.
+                     II. R ELATED W ORK                              By building on existing work and extending benchmarking
+    Understanding GPU performance has long been a critical         methodologies to Blackwell’s novel features, we contribute
+focus in HPC research. Over the years, several studies have        new insights to the evolving landscape of GPU performance
+used microbenchmarking and other types of benchmarking to          analysis.
+observe the abstract layers and analyze GPU architectures in            III. OVERVIEW OF B LACKWELL A RCHITECTURE
+fine gained details. Early works, such as [5], [6], focused on
+the first generations of GPU architectures like NVIDIA’s Tesla        Although the GB203 is based off the GH100, they rep-
+and Fermi. These work focused on profiling memory access           resent two design philosophies. GH100 - NVIDIA’s Hopper
+patterns and evaluating cache hierarchies. Their work laid the     architecture GPU chip - is optimized for large-scale AI and
+foundation for many of the benchmarking strategies still in        scientific computing workloads, while the GB203, part of the
+use today.                                                         Blackwell architecture, is a power-efficient, consumer-focused
+    As newer architectures emerged, analyses targeted Kelper       GPU design to support gaming, rendering, and small-batch
+[14], Maxwell [15], and Pascal, often focusing on warp             inference tasks. Both implement a similar CUDA core pro-
+scheduling, instruction latency and memory coalescing be-          gramming model with differences in instruction sets, execution
+havior. With the release of the Turning, Volta, Ampere, and        unit counts, memory hierarchy, and resource scheduling.
+Hopper architectures, studies [8], [9], [16]–[21] shifted toward      1) SM and Execution Pipeline: At the center of both
+evaluating mixed-precision units and tensor core performance.      architectures is the Streaming Multiprocessor (SM), which
+These work introduced microbenchmarks that probed mma              is responsible for warp scheduling, instruction issue, and
+instruction latencies, tile sizes, and data layouts. Some also     execution. While the high-level SM design remains similar
+addressed instruction-level parallelism (ILP) [22], examining      there are several differences shown in Table I. Blackwell
+how GPU pipelines behave under high register pressure or           introduces improvements in warp scheduling, reducing warp
+deeply nested loops. In parallel, Hong and Kim [3] developed       dispatch latency for divergent workloads. GH100, on the other
+an analytical model for GPU architectures. This laid the           hand, offers greater execution throughput and larger on-chip
+ground work for tools such as Accel-Sim [23] and GCoM              buffering for training-scale workloads.
+[24] to develop an implementation for modern GPUs by                  2) Cache Hierarchy: A significant difference between the
+simulating architectural behavior. While powerful, these tools     two GPUs is in the cache and memory subsystem. Table II
+often require detailed hardware understanding or lack support      shows a detailed comparison and GB203 compensates for
+for new instructions introduced in newer architectures like        its smaller L1 with increased L2 bandwidth. GH100’s HBM
+Blackwell. Even though lately, it seems Large Language             enables larger batch sizes and working set capacity, helpful
+Models (LLMs) can be used to simulate code execution on            for training large models.
+GPUs, the understanding of microarchitectures is still neces-         3) Tensor and AI Acceleration: Tensor cores are special-
+sary work to improve simulating code execution on GPUs [25].       ized units designed to accelerate matrix operations. Hopper
+Despite these existing works, little has been published on the     introduces the 4th generation tensor cores with FP8 workload
+architectural features specific to Blackwell. Our work aims to     support, and Blackwell advances to the 5th generation with
+fill this gap.                                                     extended support for FP4/FP6 formats while maintaining FP8
+    To the best of our knowledge our work provides the first       workload support.
+detailed microbenchmark based study of Blackwell’s core               4) Instruction Set and Software Compatibility: With the
+subsystem, including FP64 execution, low-precision MMA             Hopper architecture, support for tensor core instructions like
+units, and memory throughput with shared, L1, and L2 caches.       wgmma and FP8 arithmetic are via PTX and CUDA 11.8.
+                                                                       GPUs     Pure INT32   Pure FP32   Mixed 1    Mixed 2    Pure FP64
+They maintain backward compatibility with traditional mma              GB203      4/16.97      4/7.97    15.96/14   26.28/18    63.57/11
+and CUDA C++ instructions. CUDA 12.8 and PTX 8.7 ex-                   GH100      4/16.69      4/7.86    31.62/16   43.54/20     8.04/13
+pands support for Blackwell’s 5th-gen tensor core instructions,                              TABLE III
+including tcgen05 and enhanced operand types with formats                 GH100 VS GH203 LATENCY RESULTS ( TRUE / COMPLETION ).
+for FP4 and FP6. Though the Hopper wgmma instructions
+are not compatible with Blackwell, instead the new tcgen05          A. Clock Overhead
+instructions can be used for warp-group computation.
+                                                                       All clock cycles are measured with %clock64, a predefined
+   Together, GH100 is a training optimized architecture with        read-only special register that returns the counter value of
+expansive memory resources, while the GB203 focuses on              the clock cycle when read [26]. For example, Listing 1 takes
+maximizing energy efficiency within thermal constraints. De-        the value of the counter before and after the instruction, then
+spite their differences, both share microarchitectural similari-    subtract the values for the measured clock cycles.
+ties for a shared benchmarking strategy.
+   Subsequent sections of this paper dissect each of these              .reg .u64 %start, %end;
+features through targeted microbenchmarks and analysis from             ld.param.u64 %time_ptr, [param_time];
+the Hopper H100 PCIe (GH100 chip) and Blackwell GeForce                 mov.u64 %start, %clock64;
+RTX 5080 (GB203 chip) GPUs. The paper analyzes Blackwell                mad.lo.s32 r1, r1, r2, r3;
+at depth but also demonstrates a comparison between the                 mov.u64 %end, %clock64;
+previous architecture.
+                                                                    Fig. 1. PTX code measures the clock cycles of a mad.lo.s32 instruction.
+
+                   IV. C OMPUTE P IPELINE                              On GB203, without an instruction between the registers, the
+                                                                    subtracted value is 1, compared to a value of 2 for GH100. Ad-
+   Most computation on the GPU is done by a compute                 ditionally, when wrapping a combination of instructions, i.e.
+pipeline and the center of this pipeline is the SM. The SM          a mixed workload, the value is dependent on the instructions,
+is responsible for allocating compute resources, scheduling         which can shed insight into instruction workflows.
+instructions, and moving data. To complete this task, each
+SM includes four partitions of execution units or sub-cores for     B. INT and FP32 Execution Units
+integer, floating-point and tensor operations. The arrangement         In previous architectures like Volta and Ampere, INT32
+and hardware implementation of these sub-cores can provide          and FP32 instructions were issued through separate execution
+improvements or impede application performance. Under-              pipelines, often leading to suboptimal utilization when work-
+standing these resources can enable developers to improve           loads were dominated by one type [7].
+their applications while fully utilizing their GPU. To offer a         In GB203, NVIDIA includes unified execution units that
+comprehensive evaluation on the GB203 and GH100, here are           can handle both INT32 and FP32 instructions, enabling dy-
+some metrics and analysis:                                          namic scheduling based on instruction mix. Potentially reduc-
+                                                                    ing idle cycles and improving throughput for mixed workloads.
+1) Latency: Referring to the number of clock cycles an
+                                                                       However, the unified cores can only be used as INT32 or
+   instruction takes to produce a result that is usable by a
+                                                                    FP32 operations during any clock cycle. Potentially, creating
+   subsequent instruction. We measure True latency, which
+                                                                    a hazard during mixed INT32/FP32 workloads.
+   is a serialized, dependent instruction chain. Reflecting the
+                                                                       To accurately test the functionality of these unified cores,
+   data-ready delay without parallelism or overlap. When
+                                                                    we utilized standard arithmetic and integer operations using
+   there is a set of independent instructions that are allowed to
+                                                                    the PTX instructions, f ma and mad, for FP32 and INT32,
+   overlap and parallelize this is called Completion latency.
+                                                                    respectively. We compare results from three sets of kernels,
+   Both forms of latency are reported in clock cycles per
+                                                                    (A) Pure INT32, (B) Pure FP32, and (C) Mixed INT32/FP32
+   instruction (#clock cycles/#instruction).
+                                                                    instructions to represent mixed workloads utilizing both oper-
+2) Throughput/Bandwidth: Measured by the number of in-
+                                                                    ations. Each workload was executed 1024 times and averaged
+   structions completed per clock cycle per SM, based on
+                                                                    to provide a noise-less understanding on these cores.
+   measured runtime and instruction count.
+                                                                       Our measurements show the true latency for pure INT32
+We wrote our microbenchmarks in PTX instructions and                and FP32 workloads on both GPUs were four cycles. GH100
+CUDA. Instead of writing inline instructions within CUDA            did slightly better on the completion latency with pure ker-
+files we wrote PTX kernels within the individual files, that        nels. Although GH100 uses separate execution pipelines for
+will be executed with a compiled CUDA file at runtime. These        INT32 and FP32 operations, we observed GH100 performs
+separate PTX kernel files prevents compile time optimizations       worse than the GB203 when executing the mixed instruction
+to the code. To confirm the PTX instructions weren’t optimized      sequence, see Table III. This suggests the unified INT32/FP32
+during runtime we review the generated SASS code from each          execution cores on Blackwell introduced more efficient com-
+PTX kernel file, to confirm there have been no optimizations        pute pipelines. To mention, GB203 had a higher true and
+to the instructions.                                                completion latency for the pure and mixed kernels during the
+first run, which is absent from the results in Table III. Other
+studies have also excluded similar results [27] due to missed
+cache access before the cache warmed up. Though, this was
+not present with the Hopper run.
+   The Blackwell architecture shows improvement in latency in
+the mixed workloads while Hopper does better with the pure
+instruction workloads.
+C. FP64 Execution Units
+    Double-precision (FP64) execution units are essential for
+workloads requiring high numerical accuracy, such as scien-
+tific simulations. While AI and graphics applications increas-     Fig. 2. Comparing Total Cycles vs Iterations of the GB203 and GH100 GPUs
+ingly rely on low-precision formats (FP16, BF16, FP8, etc.),       with INT32, FP32, and FP64 workloads.
+FP64 remains a key feature for HPC and research domains.
+    GH100 and GB203 each contain a dedicated set of FP64
+execution units, physically separate from the INT32/FP32
+units. This separation allows the scheduler to issue FP64
+instructions independently. The GB203 chip has two FP64
+execution units per SM, compared to GH100 which has 64,
+see Table I.
+    Our microbenchmarks displayed expected results, Table III
+shows the GH100 latency for 1024 FP64 dependent instruc-
+tions remained below the GB203 When only two dependent
+instructions were executed, the GB203 latency decreased to
+37.5 cycles. Normally, running more instructions hides latency,    Fig. 3. Comparing Throughput vs Iterations of the GB203 and GH100 GPUs
+however, in this case there are only two execution units. This     with INT32, FP32, and FP64 workloads.
+suggests the two units are only for type and instruction support
+while the calculation is meant to be emulated with other              Notably, GB203 exhibited smoother, more consistent in-
+precisions i.e. using the FP32 executions units or the tensor      crease in throughput compared to GH100’s more irregular
+core instead.                                                      ramp-up. Except, GB203 demonstrated a lower throughput
+    These insights are particularly relevant for users targeting   with the FP64 instructions compared to the INT32 or FP32
+portable performance across both datacenter and consumer-          counterparts.
+grade GPUs, where understanding FP64 bottlenecks can in-              Similarly, Figure 2 shows GH100 achieves lower total
+form precision tradeoffs or algorithm design.                      cycles before 8 instructions, indicating more effective latency
+                                                                   hiding under short dependency chains, compared to GB203.
+D. Warp Scheduler Behavior and Issue Model                         After 8 instructions the total cycle count sharply drops for both
+   To evaluate warp scheduling sensitivity and latency han-        architectures, likely due to instruction scheduling warming up
+dling under dependency chains, we implemented a serialized         or pipeline effects. Though, similar to throughput, GH100 has
+dependent-instruction benchmark, where each thread executes        more sporadic total cycles as the instruction count increases.
+a chain of dependent arithmetic operations in registers for each      The slightly better throughput from the GH100 in small
+execution unit. Figures 2 and 3 show results as we incremented     number of dependent instructions is likely due to deeper in-
+the number of dependent instructions per thread from 1 to          struction buffering and a more aggressive warp scheduler that
+1024 (results shown for 1 to 64). To ensure a fair comparison      can tolerate instruction dependencies when pressure is high.
+of total cycles and throughput, we control the total number of     However, aggressive scheduling can also introduce instability
+instructions executed by adjusting the loop iteration count for    during the higher number of instructions. On the other hand,
+each chain length.                                                 GB203’s steadier progression suggests a more conservative
+   As shown in Figure 3, throughput increases steadily for the     issue strategy. However, the higher total cycles during small
+first 1-9 instructions, after which the pipeline differs between   number of dependent instructions does need more analysis.
+architectures and incrementally improves for all INT32, FP32,         While both GPUs exhibit comparable performance overall,
+and FP64 workloads. The low throughput for short dependent         GH100 tolerates short latency bound instruction sequences,
+chains is due to insufficient ILP within each thread, which        whereas GB203 is optimized for more regular high-ILP ker-
+limits the GPU’s ability to hide instruction latency. With only    nels.
+a few dependent instructions, threads quickly stall, and the
+scheduler cannot fully utilize the execution units, resulting in                V. 5 TH G ENERATION T ENSOR C ORE
+lower performance. As the chain length increases, the sched-          Introduced in the Volta architecture, tensor cores are special-
+uler can better overlap execution and hide latency, improving      ized units designed to accelerate matrix multiplication, a foun-
+throughput.                                                        dational operation in deep learning and scientific computing.
+                                                                                 Format    D-Types   PTX Instruction
+To fully utilize these tensor, kernels with matrix multiplication                 e2m1     FP4       .m16n8k32.row.col.f32.e2m1.e2m1.f32
+operations are used, such as matrix multiplication accumulate                     e3m2     FP6       .m16n8k32.row.col.f32.e3m2.e3m2.f32
+(MMA). To observe the behavior of the GB203 and GH100                             e2m3     FP6       .m16n8k32.row.col.f32.e2m3.e2m3.f32
+our custom PTX microbenchmarks measure execution latency,                         e4m3     FP8       .m16n8k32.row.col.f32.e4m3.e4m3.f32
+                                                                                  e5m2     FP8       .m16n8k32.row.col.f32.e5m2.e5m2.f32
+throughput, and operand staging behavior. This section eval-
+                                                                                                         TABLE V
+uates the GB203 and GH100’s tensor cores capabilities ILP                    C OMPARISON OF THE SUPPORTED DATATYPES (D-T YPES ) ON THE 4 TH
+and varying warp counts.                                                     AND 5 TH GENERATION TENSOR CORES THAT ARE BEING TESTED WITH
+                                                                            THE MMA INSTRUCTION . E 8 M 0 IS ONLY USED FOR SCALING EXPONENTS
+A. Instruction Sets and Supported Datatypes                                              IN THE BLOCK SO IT WAS NOT TESTED [26].
+
+   The fifth-gen GB203 and fourth-gen GH100 tensor cores                                   Data Formats   Blackwell   Hopper
+both support instructions with different datatypes, operand                                 FP4 e2m1      16.753      n/a
+handling, and performance tuning. Table IV compares the                                     FP6 e2m3      39.383      n/a
+                                                                                            FP6 e3m2      46.723      n/a
+supported instructions and datatype precisions between the                                  FP8 e4m3      46.661      55.823
+fourth and fifth generations of the tensor core.                                            FP8 e5m2      46.806      55.786
+   The fifth generation in Blackwell introduces new datatypes                                            TABLE VI
+(FP4 and FP6) implemented in CUDA with new SASS-                            P OWER U SAGE (WATTS )/P ERFORMANCE PER WATT WITH DATA FORMATS
+level instructions (e.g., OMMA, QMMA) that reflect hardware                          ON THE B LACKWELL AND H OPPER ARCHITECTURES .
+
+support for low-precision formats. Hopper, on the other hand,
+provides support for wgmma instructions, which enable warp-                 or without the kind specifier result in PTX errors. Ta-
+group asynchronous matrix operations, but lacks FP4 and FP6                 ble V shows the matrix shapes and PTX instructions after
+support.                                                                    mma.sync.aligned.kind::f8f6f4 used across precision formats,
+                     GB203 (5th-Gen)           GH100 (4th-Gen)
+                                                                            that were tested in our microbenchmarks.
+ Supported      FP4, FP6, FP8, INT8, FP16,   FP8, INT8, FP16, BF16,            Through our experiments the PTX-level mma.sync instruc-
+ Datatypes          BF16, TF32, FP64               TF32, FP64               tions are translated into, OMMA, QMMA, or HMMA SASS
+ MMA              mma, wmma, tcgen05          mma, wmma, wgmma
+ Instructions                                                               instructions. By observing the generated SASS instructions on
+                                                                            the GH100, we observe each mma.sync uses the HMMA
+                             TABLE IV
+    T ENSOR CORE SUPPORTS DATATYPES AND mma INSTRUCTIONS .                  instruction for each datatype. For Blackwell, the CUDA Binary
+     TCGEN 05 IS YET TO BE SUPPORTED FOR THE ARCH . SM 120 A .              Utilities 12.9 documentation [28] specify QMMA is used for
+                                                                            FP8 matrix multiply and accumulate across a warp, while
+B. Variable MMA and Tile-Based Instructions                                 OMMA is used for FP4 matrix multiply and accumulate across
+   Even though the wgmma instruction isn’t supported in                     a warp. Our microbenchmarks confirmed both formats of FP8
+GB203 and the tcgen05 instruction hasn’t been implemented                   inputs use the new QMMA instruction as well as both formats
+yet for GB203, NVIDIA has implementation of the mma                         for FP6 inputs. While the FP4 input mma was intended to use
+instruction in both GPUs with the respective datatypes. in-                 the OMMA SASS instruction, instead the QMMA instruction
+struction for the tensor cores to be analyzed.                              was observed. However, when using block scaling with FP8
+   The matrix multiplication accumulate (MMA) operation                     ue8m0 as the scaling format, OMMA was observed in the
+enables matrix computations for GEMM and deep learning                      SASS code. Suggesting that QMMA is the fall back for FP4
+workloads. Each mma instruction specifies a tile shape,                     inputs in the current software.
+denoted as M×N×K, which determines the dimensions of                           In summary, with limited software support as NVIDIA is
+the matrix fragments processed per warp or per threadgroup.                 starting to develop these features, we want to provide a current
+For example, the instruction in Equation 1 computes a 16×8                  understanding of the usability and a deep analysis of these
+(M×N) output tile using 16×32 (M×K) and 32×8 (K×N)                          pipelines.
+inputs.
+                                                                            C. Precision Tradeoffs
+       mma.sync.aligned.m16n8k32.f 32.f 16.f 16.f 32                  (1)
+                                                                               Low-precision formats are used to reduce memory footprint
+   There are a variety of other supported tile shapes such                  and improve throughput, especially for inference workloads.
+as m8n8k16 or m16n8k64, that support finer granularity                      The supported datatypes mentioned in the previous section
+or larger operand reuse per instruction issue. Adjacent to                  (FP4, FP6, FP8) all have different formats and are considered
+tile shapes, mma instructions support various input/output                  low-precision. These datatype formats reduce the number of
+precisions including but not limited to FP4, FP8, FP16 and                  bits used to represent floating-point numbers by adjusting the
+FP32. These datatypes are encoded in Eq. 1, where f16 and                   number of exponent and mantissa bits, hence a trade-off in
+f32, denotes FP16 inputs with FP32 accumulation and outputs.                dynamic range and precision.
+   In the new instruction set released for Blackwell, CUDA                     Previous studies have worked to understand the accuracy of
+12.9, the .kind::f8f6f4 suffix must be explicitly specified                 these low-precision formats, in this section we will analysis the
+on the PTX instruction to use FP6 or FP4 mma opera-                         performance-per-watt and power consumption of these low-
+tions on GB203. Attempts to use these formats on GH100                      precision formats on both architectures.
+Fig. 4. Throughput of GB203 and GH100 with varying precision formats   Fig. 5. Latency of the GB203 and GH100 with varying precision formats
+and warp counts.                                                       and warp counts.
+
+                                                                       latency as more warps are added, a sign of deeper but less agile
+  Noticeably, Table VI summarizes our microbenchmark re-
+                                                                       scheduling queues. This indicates that GH100 requires more
+sults on GB203 and GH100. GH100 lacks native support for
+                                                                       warps in flight to saturate execution units, whereas GB203
+FP4 and FP6 formats but sustains slightly higher power usage
+                                                                       performs better with fewer warps but more independent in-
+with both FP8 formats (roughly 55W), while GB203 largest
+                                                                       structions. Together, these results show that Blackwell’s warp
+power consumption is 46W for the same formats. Power usage
+                                                                       scheduler is optimized for low-precision, high-ILP workloads
+generally decreases with lower precision as FP4 achieves the
+                                                                       with clean control flow, while Hopper relies on bulk concur-
+lowest consumption at 16.75W, while FP6 and FP8 formats
+                                                                       rency and deeper buffering to maintain performance under less
+draw over 39W and 46W, respectively.
+                                                                       regular conditions.
+  These results suggest Blackwell’s architectural efficiency at
+                                                                          This comparison indicates that Blackwell is optimized for
+low precision and demonstrate a trade-off between numerical
+                                                                       higher per-thread instruction throughput, while both have a
+expressiveness and energy consumption in mma tensor core
+                                                                       similar warp scheduling capacity regardless of data formats,
+workloads.
+                                                                       reflecting different trade-offs in their tensor core microarchi-
+D. Warp Scaling and Shared Memory Access                               tectures.
+   With our implemented low-precision input mma mi-                       Our methodology can serve as a reference framework for
+crobenchmarks, we vary ILP and warp count to inspect in-               evaluating tensor core performance on future architectures
+struction mapping and compare warp scheduling behavior of              and highlights critical tradeoffs in precision, throughput, and
+GB203 and GH100.                                                       execution behavior at the warp level.
+   The maximum ILP level at which sustained throughput is
+                                                                                         VI. M EMORY S UBSYSTEM
+achieved for each precision format, across decreasing warp
+counts is ILP=5 with 29 active warps, for GH100, and ILP=6                GPU performance is increasingly constrained by memory
+at 25 active warps, for GB203. This implies Blackwell is               subsystem behavior rather than raw computation throughput.
+capable of issuing more independent mma instructions per               Efficient utilization of the memory hierarchy, including shared
+thread, compared to the lower ILP scaling in the GH100.                memory, various levels of cache, and global memory, is crucial
+   When ILP=1 and warps=1, the cycle count from instruction            for achieving architectural efficiency. While both the GH100
+issue to data being usable is the completion latency, for GB203        and GB203 adopts similar memory layouts, they exhibit
+all precision formats is 1.21094 cycles. GH100 completion              distinct trade-offs in latency, bandwidth, and capacity.
+latency is 1.65625 cycles, suggesting all low-precision formats           This section presents a comparative evaluation of the mem-
+for mma instructions use the same execution pipeline, on there         ory subsystems through microbenchmarking methodologies
+respective architectures. Similarly, GB203 achieves higher             that measure latency, saturation behavior, and sensitivity to
+throughput than GH100 across all low-precision formats,                access patterns.
+peaking at over 11 TFLOP/s with 6 ILP and 32 active
+warps. Suggesting that increasing ILP significantly boosts             A. Memory Hierarchy Overview
+throughput at low warp counts, confirming that Blackwell’s                This study focuses on device-level memory access, ex-
+warp scheduler efficiently exploits intra-warp parallelism when        cluding host-device transfer performance, which is heavily
+concurrency is limited.                                                influenced by system interconnects (i.e. PCIe vs. NVLink).
+   We averaged the ILP latency and throughput for each low-            GPU memory access patterns target global memory, shared
+precision format to present a trend of Blackwell and Hopper.           memory, and hardware-managed cache layers (L2, L1, L0 i-
+As shown in Figure 4, GB203 has improved throughput for                cache), in addition to the register file.
+every precision format.                                                   To isolate latency characteristics, we employ a pointer-chase
+   Similarly, Figure 5 illustrates latency scaling across formats.     microbenchmark with random serialized memory accesses.
+GB203 sustains consistently lower latency, especially for FP4          Figure 6 illustrates latency (in cycles) across increasing data
+and FP6, while GH100 experiences step-like increases in                sizes for GB203 and GH100.
+Fig. 6. Latency in cycles of the memory hierarchy on the GB203 and GH100.
+
+  Three cache regions:                                                      Fig. 7. Latency comparison of GH100 and GB203 with Shared Memory.
+ 1) L1 Cache: spanning 0 to (≈128KB or ≈256KB)
+ 2) L2 Cache: spanning end of L1 to (≈30 MB or ≈60MB)
+ 3) Global Memory: beyond L2 Cache
+  Latency spikes correspond to cache boundaries, consistent
+with architectural specifications (Table II).
+
+B. Shared Memory and L1 Cache Behavior
+   Modern NVIDIA GPUs combine Shared Memory and L1
+Cache in a unified memory space per SM. To evaluate the
+performance and characteristics of this unified design on the
+GB203 and GH100 chips, we developed microbenchmarks to
+                                                                               Fig. 8. Latency comparison of GH100 and GB203 with L1 Cache.
+measure access latency trends, bank conflict sensitivity, and
+warp scaling behavior.                                                      due to its larger shared memory capacity but could be from a
+   As seen from the pointer-chasing benchmark in Figure 6,                  more robust bank conflict mitigation.
+both GPUs perform nearly identical latencies in the L1 cache                   With stride 4, GH100 maintains smoother scaling and lower
+region, reaming consistent at 30-40 cycles, indicating similar              latency at a higher warp level, indicating better tolerance
+hit latencies in the hardware-managed data path. Despite                    to access skew. In contract, GB203 exhibits steeper latency
+architectural differences, this suggests a well-optimized L1                increased with stride 4, likely due to bank contention and
+access path.                                                                saturation of its smaller memory partition.
+   However, cache capacity differs significantly. GH100 fea-                   Figure 8 shows latency trends as more warps access the
+tures up to 256 KB of combined L1/shared memory per SM,                     L1 cache. While both architectures show a latency increase
+whereas GB203 reduces this to 128 KB/SM.                                    at the first access, GB203 maintains slightly lower latency
+   The GH100 and GB203 expose a configurable portion                        from 2-11 warps on stride 1. L1 latency remains flatter across
+of this memory to software as shared memory. Using                          warp count steps compared to shared memory, particularly
+dynamic allocation from the cudaF uncSetAttribute and                       on GH100, likely due to spatial locality and L1’s higher
+cudaF uncAttributeM axDynamicSharedM emorySize                              tolerance to conflict. However, under stride 4 on GB203,
+attribute, we determined the configurable shared memory                     latency increases more sharply, suggesting that even though
+limits to be ≈227 KB/SM on GH100 and ≈99 KB/SM on                           L1 is less sensitive to stride than shared memory, access skew
+GB203. Without dynamic allocation, the default static shared                still impacts performance, especially with a lower memory
+memory limits remains 48 KB/SM on both architectures.                       partition that can become easily saturated.
+   To explore access behavior, we designed two microbench-                     Overall, shared memory latency is highly sensitive to warp
+marks. For shared memory, we accessed a statically declared                 count and access stride, particularly on GB203 where bank
+   shared array with configurable stride and warp counts.                   conflicts scale more aggressively. In contrast, L1 cache ex-
+Similarly for the L1 cache, we accessed global memory via a                 hibits more latency with better resilience as warps increase
+   restrict f loat∗ gmem, with working sets designed to fit                 through shared memory and L1 cache latency meet at 32
+within L1 cache capacity and induce conflict via strided loads.             warps. GH100’s larger unified memory and smoother warp
+Both benchmarks swept from 1 to 32 warps and stride sizes                   scaling give it an advantage in highly threaded kernels with
+of 1 and 4 with 32 memory accesses. Each test was repeated                  dense reuse. GB203, on the other hand, improves low latency
+1024 times, and median latency was recorded.                                access paths and conflict resolution at small warp counts,
+   Figure 7 shows how shared memory latency scales with                     likely via microarchitectural enhancements such as multiported
+increasing warp count. For both strides, GB203 exhibited                    banks or warp aware scheduling.
+lower latency at low warp counts (1-4 warps), suggesting                       These results demonstrate the improvement in warp scaling
+a more optimized path under light loads. However, GH100                     kernel design, particularly for the GB203, though the chip is
+outperforms under higher warp pressure (6–32 warps), likely                 still constrained by the memory partition limits.
+                                                                       Fig. 10. GB203 and GH100 throughput of the memory hierarchy.
+             Fig. 9. L2 cache latency with warp scaling.
+                                                                   up and eventually slightly outperforms GH100 at 20 warps. At
+C. L2 Cache
+                                                                   32 warps, GB203 completes the benchmark in ≈128.4k cycles
+   The L2 cache architectures in the GH100 and GB203 GPUs          per warp, compared to GH100’s ≈128.9k. This shift reflects
+reflect two distinct designs, particularly in how they handle      GB203’s higher aggregate L2 bandwidth under extreme load,
+partitioning and scaling under load. Positioned between global     likely a result of its larger cache size and reduced partitioning
+memory and the SMs, the L2 cache is the largest on-chip            overhead. While GH100 offers consistent performance and
+memory block.                                                      deterministic warp scheduling at low to moderate concurrency
+   In the GH100, the L2 cache is divided into two independent      levels, it reaches a throughput ceiling under full pressure,
+partitions, each servicing a subset of GPCs. This partitioned      constrained by its partition arbitration.
+design supports better data locality and parallelism across           These trends suggest that GH100 is better suited to latency-
+cache accesses. In contrast, the GB203 employs a monolithic        sensitive and dynamic workloads that operate under moderate
+L2 cache shared by all GPCs. This unified approach simplifies      concurrency, thanks to its aggressive warp scheduling and
+global memory routing and coherence, and can improve spatial       partitioned cache layout. GB203, on the other hand, delivers
+locality for smaller or graphics-oriented workloads. However,      superior performance under full utilization, making it more
+it may also lead to greater contention when many SMs issue         favorable for large-scale, bandwidth-bound applications such
+simultaneous uncached or streaming memory accesses.                as deep learning inference or dense matrix operations.
+   Latency measurements highlight these differences. For stan-        In summary, GH100’s partitioned L2 architecture is opti-
+dard L2 hits, the GB203 exhibits a fixed latency of approxi-       mized for high concurrency and compute-heavy server-class
+mately 358 cycles, while the GH100 achieves a lower latency        workloads. GB203’s unified L2 design simplifies hardware
+of around 273 cycles. This latency advantage in GH100 likely       complexity and favors mixed compute-graphics use cases.
+stems from its partitioned design, which reduces contention        These architectural trade-offs must be considered when tuning
+by distributing access across two units. As memory demands         for specific performance targets in memory-bound kernels,
+grow, however, GH100’s advantage diminishes: when both             whether prioritizing latency, throughput, or data locality.
+partitions are saturated, latency increases to about 508 cycles
+for memory sizes ranging from 31 MB to 45 MB. In contrast,
+GB203 maintains its baseline latency further into the memory       D. Global Memory
+footprint, due to its larger total L2 capacity (65 MB compared
+to GH100’s 50 MB).                                                    We extend the analysis to global memory bandwidth us-
+   To understand how these architectures perform under warp-       ing a series of sustained transfer benchmarks. As shown
+level concurrency, we developed a microbenchmark that issues       in Figure 10, GH100 achieves a peak read bandwidth of
+1024 global memory load/store operations per thread and            15.8 TB/s, substantially higher than GB203’s 8.2 TB/s. Write
+tracks per-warp cycle timing. This setup allows us to evaluate     bandwidth is lower on both, 2.2 TB/s (GH100) vs. 1.6 TB/s
+how L2 throughput scales with increasing warp counts.              (GB203), demonstrating the architectural design toward read-
+   Figure 9 shows at low warp counts (1–4), the GH100 con-         heavy workloads. Possibly due to narrower write-back paths
+sistently delivers better performance, with average per-warp       or less aggressive write coalescing. Latency trends observed in
+cycle times around 43.5k, compared to GB203’s 49k. This            Figure 6 indicate global memory access begins beyond 71 MB
+difference reflects not only GH100’s faster L2 latency but also    (GB203) and 55 MB (GH100), with respective latencies of
+its deeper warp scheduler pipeline and more efficient buffering.   ≈876.7 cycles and ≈658.7 cycles. GH100’s superior latency
+In the 8–16 warp range, GH100 maintains its advantage with         performance is attributable to its use of HBM2e, which offers
+minimal performance degradation, whereas GB203 begins to           higher bandwidth and lower latency than GB203’s GDDR7.
+show signs of saturation, reaching approximately 66k cycles           While the Blackwell architecture introduces notable en-
+at 16 warps. This suggests that GB203’s single L2 interface        hancements in memory scheduling and subsystem design,
+becomes a bottleneck as concurrent memory pressure grows.          these changes may lead to reduced consistency in irregular
+   Interestingly, at high warp counts (16–32), GB203 catches       or latency-sensitive workloads.
+Fig. 11. The runtime (ms) of each execution size (M×N×K) on both the
+                                                                       Fig. 12. The power consumption (W) of the program with each execution
+Hopper H100 and the Blackwell RTX 5080 GPUs. The M=N=K=8192 kernel
+                                                                       size (M=N=K) on both the Hopper H100 and the Blackwell RTX 5080 GPUs.
+runtime was 4.710 ms for the Blackwell GPU, omitted from the graph.
+
+          VII. M ICROBENCHMARK C ASE S TUDIES                          nearly 4× higher than Blackwell’s 0.233 TFLOP/s. Even at
+                                                                       smaller sizes such as 1024×1024×1024, Hopper maintains
+   To evaluate how microarchitectural differences between              a clear advantage. While Blackwell theoretically supports
+GH100 and GB203 affect real-world performance, we imple-               higher FP8 compute rates, these results suggest that kernel
+mented a set of representative GPU kernels spanning key ap-            selection, memory hierarchy utilization, or scheduling are
+plication domains. These case studies bridge the gap between           limiting practical throughput on the current RTX 5080.
+synthetic benchmarks and practical performance behavior,
+allowing us to assess how memory hierarchy, warp scheduling,                 Matrix Size      Hopper (TFLOP/s)     Blackwell (TFLOP/s)
+and tensor cores interact in realistic execution environments.            8192×8192×8192           0.887                  0.233
+                                                                          2048×2048×2048           0.554                  0.191
+A. Dense GEMM                                                             2048×2048×4096           0.674                  0.192
+                                                                          2048×4096×8192           0.759                  0.217
+   A dense general matrix multiplication (D-GEMM) kernel                  1024×1024×1024           0.239                  0.134
+utilizes nearly every stage of the compute pipeline, from                                     TABLE VII
+shared memory operand staging, register usage, warp schedul-                  D-GEMM T HROUGHPUT ON GH100 AND GB203 GPU S
+ing, to tensor core utilization. We evaluate a D-GEMM kernel              Lastly we tested tile sizes from 1 to 64 and added a 512 size
+with FP8 inputs using NVIDIA’s cuBLASLt API and the                    to the matrix, to see if there was a difference with power since
+   nv f p8 e4m3 datatype. Our kernel performs a fused matrix           Blackwell had a longer runtime with larger sizes. Figure 12
+multiplication and accumulation of the form D = AT ∗B +C,              compares the average power draw across the matrix sizes. We
+where A and B are FP8, C is represented as bfloat16, and D             average the power usage of each tile size at the variable matrix
+is stored in FP8.                                                      shapes, since the power consumption at each tile size was
+   The goal was to assess compute throughput and power                 relatively similar. We still see the overall trend in power con-
+behavior across varying matrix sizes, providing a comparison           sumption with the different matrix shapes. Hopper maintains
+not only between the GH100 and GB203 but also to the lower-            a relatively flat power profile, with power usage around 58-
+level PTX microbenchmarks in previous sections.                        60W and peaks at 68W even for the largest 8192×8192×8192
+   The GEMM kernel is benchmarked using a 32 MB                        matrix shape. On the other side, Blackwell shows higher
+workspace. We used nvidia-smi to measure power and effi-               variability and a stepper power curve, with average power
+ciency. Each configuration was executed 100 times, averaged,           exceeding 80W and peaking at 114.4W. Notably, there are
+and repeated across sizes (1024, 2048, 4096, 8192). Figure 11,         spikes in power usage when N=K=8192 is used in conjunction
+shows the runtime comparison across matrix sizes (M×N×K)               with the other sizes. Also for the 512×512×512 matrix shape
+for both GPUs. Hopper consistently outperforms Blackwell,              Blackwell used way less power than compared to Hopper,
+achieving lower runtime across nearly all configurations. The          suggesting Blackwell was able to preserve power during the
+performance gap widens with larger matrix sizes, where                 pipeline, though this was not seen with the rest of the matrix
+Blackwell shows significant spikes in latency. This incon-             sizes. The higher power of GB203, combined with lower
+sistency suggests potential instability in kernel selection or         throughput, results in lower performance-per-watt across most
+scheduling for FP8 GEMM on Blackwell, despite theoretical              configurations.
+improvements for FP8. Hopper benefits from a more mature                  Overall, while Blackwell’s RTX 5080, FP8 compute is
+compiler heuristic or stable scheduling at scale. With the             impressive, real-world efficiency on dense GEMM remains
+increase in latency on the Blackwell, Table VII shows the              more favorable on Hopper with current software and kernel
+achieved throughput in TFLOP/s, calculated with Equation 2,            implementations.
+for selected matrix sizes.
+                                                                       B. Transformer Inference
+         T F LOP S = (2 × M × N × K)/runtime                    (2)
+                                                                          To evaluate performance and energy efficiency under real-
+  Hopper consistently delivers higher effective throughput             world inference workloads, we implemented a Transformer
+across all tested shapes. For example, at the largest config-          inference case study using TensorRT, NVIDIA’s optimized
+uration (8192×8192×8192), Hopper reaches 0.887 TFLOP/s,                framework [29]. This test complements our dense GEMM
+benchmark by incorporating memory-intensive and latency-                                         R EFERENCES
+sensitive compute patters such as multi-head attention, MLP
+layers, layer normalization, and token sampling.                    [1] B. R. Coutinho, G. L. M. Teodoro, R. S. Oliveira, D. O. G. Neto, and
+                                                                        R. A. C. Ferreira, “Profiling general purpose gpu applications,” in 2009
+   We selected the GPTneox model [30] due to its small size             21st ISCA and HPC, 2009, pp. 11–18.
+and compatibility with both FP8 and FP4 quantization paths.         [2] M. Leinhauser, R. Widera, S. Bastrakov, A. Debus, M. Bussmann,
+                                                                        and S. Chandrasekaran, “Metrics and design of an instruction
+The model was run with variable precision (best, normal, fp16,          roofline model for amd gpus,” 2021. [Online]. Available: https:
+fp8). TensorRT uses the best precision for performance or the           //arxiv.org/abs/2110.08221
+default precision set which seems to be either FP32 or TF32,        [3] S. Hong and H. Kim, “An analytical model for a gpu architecture
+for best and normal precisions respectively. Each inference             with memory-level and thread-level parallelism awareness,” SIGARCH
+                                                                        Comput. Archit. News, vol. 37, no. 3, p. 152–163, Jun. 2009. [Online].
+was run a hundred times and the metrics were averaged. Table            Available: https://doi.org/10.1145/1555815.1555775
+VIII shows that the Blackwell GPU benefits from a better            [4] W. Jia, K. A. Shaw, and M. Martonosi, “Characterizing and improving
+power model. Hopper maintained a 57-60W consistent power                the use of demand-fetched caches in gpus,” in Proceedings of the
+                                                                        26th ACM International Conference on Supercomputing, ser. ICS ’12.
+usage across precisions, indicating a stable runtime efficiency.        New York, NY, USA: ACM, 2012, p. 15–24. [Online]. Available:
+With Blackwell having a more pronounced reduction in power              https://doi.org/10.1145/2304576.2304582
+as precision decreases, with a from‘ 58.8W to 45W in FP8,           [5] H. Wong, M.-M. Papadopoulou, M. Sadooghi-Alvandi, and
+                                                                        A. Moshovos, “Demystifying gpu microarchitecture through
+suggesting better scaling or lower utilization under reduced            microbenchmarking,” in 2010 ISPASS, 2010, pp. 235–246.
+precision. Interestingly, the ”Best” configuration, which should    [6] S. Subramoniapillai Ajeetha, “Architectural analysis and performance
+reflect the highest performing engine by TensorRT, shows                characterization of nvidia gpus using microbenchmarking,” Ph.D.
+                                                                        dissertation, The Ohio State University, The Ohio State University,
+Blackwell increased power draw.                                         2012. [Online]. Available: http://rave.ohiolink.edu/etdc/view?acc num=
+                                                                        osu1344623484
+                Precision   Hopper   Blackwell                      [7] Z. Jia, M. Maggioni, B. Staiger, and D. P. Scarpazza, “Dissecting the
+                  FP32       60.24     58.82                            NVIDIA volta GPU architecture via microbenchmarking,” CoRR, vol.
+                  FP16       57.64     47.78                            1804.06826, 2018. [Online]. Available: http://arxiv.org/abs/1804.06826
+                  FP8        57.69     45.14                        [8] Z. Jia, M. Maggioni, J. Smith, and D. P. Scarpazza, “Dissecting the
+                  Best       60.15     61.03                            nvidia turing T4 GPU via microbenchmarking,” CoRR, vol. 1903.07486,
+                                                                        2019. [Online]. Available: http://arxiv.org/abs/1903.07486
+                          TABLE VIII                                [9] W. Luo, R. Fan, Z. Li, D. Du, H. Liu, Q. Wang, and X. Chu,
+    AVERAGE I NFERENCE P OWER C ONSUMPTION IN WATTS ACROSS              “Dissecting the nvidia hopper architecture through microbenchmarking
+                      P RECISION M ODELS .                              and multiple level analysis,” 2025. [Online]. Available: https:
+                                                                        //arxiv.org/abs/2501.12084
+  Overall, this demonstrates that Hopper delivers a steadier       [10] NVIDIA Corporation, NVIDIA H100 Tensor Core GPU Architecture,
+power efficiency across formats, Blackwell can be tuned for             NVIDIA, Mar. 2022. [Online]. Available: https://resources.nvidia.com/
+                                                                        en-us-data-center-overview/gtc22-whitepaper-hopper
+competitive inference workloads with better power efficiency.
+                                                                   [11] ——, NVIDIA Blackwell Architecture Technical Brief: Powering
+                                                                        the New Era of Generative AI and Accelerated Computing,
+                     VIII. C ONCLUSION                                  NVIDIA, Mar. 2024. [Online]. Available: https://resources.nvidia.
+                                                                        com/en-us-blackwell-architecture
+                                                                   [12] L. Fusco, M. Khalilov, M. Chrapek, G. Chukkapalli, T. Schulthess,
+   This work presented a detailed experimental analysis of              and T. Hoefler, “Understanding data movement in tightly coupled
+NVIDIA’s Blackwell architecture (GB203 chip) through care-              heterogeneous systems: A case study with the grace hopper superchip,”
+                                                                        2024. [Online]. Available: https://arxiv.org/abs/2408.11556
+fully designed microbenchmarks. By comparing microarchi-           [13] NVIDIA        Corporation,     NVIDIA      RTX      BLACKWELL       GPU
+tectural features against the Hopper (GH100 chip) GPU, we               ARCHITECTURE,             NVIDIA,        2025.        [Online].    Avail-
+provide insights into Blackwell’s advancements in memory hi-            able: https://images.nvidia.com/aem-dam/Solutions/geforce/blackwell/
+                                                                        nvidia-rtx-blackwell-gpu-architecture.pdf
+erarchy, SM execution pipeline, and its 5th-gen Tensor Cores.      [14] X. Zhang, G. Tan, S. Xue, J. Li, K. Zhou, and M. Chen, “Understanding
+Our analysis highlights the hardware’s increased support for            the gpu microarchitecture to achieve bare-metal performance tuning,”
+low-precision formats such as FP4 and FP6, revealing their              in Proceedings of the 22nd ACM SIGPLAN SPPPP, ser. PPoPP ’17.
+                                                                        New York, NY, USA: ACM, 2017, p. 31–43. [Online]. Available:
+practical implications for power and performance efficiency.            https://doi.org/10.1145/3018743.3018755
+The guidelines and observations presented in this study pro-       [15] X. Mei and X. Chu, “Dissecting gpu memory hierarchy through mi-
+vide a microarchitectural understanding to assist developers in         crobenchmarking,” IEEE TPDS, vol. 28, no. 1, pp. 72–86, 2017.
+optimizing software to effectively use the hardware and thus       [16] M. Fasi, N. J. Higham, M. Mikaitis, and S. Pranesh, “Numerical
+                                                                        behavior of NVIDIA tensor cores,” PeerJ Computer Science, vol. 7, p.
+enable more efficient deployment of AI and HPC workloads.               e330, 2021. [Online]. Available: https://doi.org/10.7717/peerj-cs.330
+                                                                   [17] G. Tan, L. Li, S. Triechle, E. Phillips, Y. Bao, and N. Sun, “Fast
+                                                                        implementation of dgemm on fermi gpu,” in Proceedings of SC 2011,
+                    ACKNOWLEDGMENT                                      ser. SC ’11. New York, NY, USA: ACM, 2011. [Online]. Available:
+                                                                        https://doi.org/10.1145/2063384.2063431
+   We thank Nikhil Jain from NVIDIA for their correspon-           [18] S. Markidis, S. W. D. Chien, E. Laure, I. B. Peng, and J. S. Vetter,
+                                                                        “Nvidia tensor core programmability, performance &amp; precision,”
+dence and for addressing our questions. This research used              in 2018 IEEE IPDPSW. IEEE, May 2018, p. 522–531. [Online].
+resources on the Frank cluster at the University of Oregon.             Available: http://dx.doi.org/10.1109/IPDPSW.2018.00091
+This material is based upon work supported by the U.S. DOE         [19] M. Martineau, P. Atkinson, and S. McIntosh-Smith, “Benchmarking the
+                                                                        nvidia v100 gpu and tensor cores,” in Euro-Par 2018: Parallel Process-
+under Contract DE-FOA-0003177, S4PST: Next Generation                   ing Workshops, G. Mencagli, D. B. Heras, V. Cardellini, E. Casalicchio,
+Science Software Technologies Project.                                  E. Jeannot, F. Wolf, A. Salis, C. Schifanella, R. R. Manumachu, L. Ricci,
+     M. Beccuti, L. Antonelli, J. D. Garcia Sanchez, and S. L. Scott, Eds.
+     Cham: Springer International Publishing, 2019, pp. 444–455.
+[20] M. A. Raihan, N. Goli, and T. M. Aamodt, “Modeling deep learning
+     accelerator enabled gpus,” in 2019 IEEE ISPASS, 2019, pp. 79–92.
+[21] D. Yan, W. Wang, and X. Chu, “Demystifying tensor cores to optimize
+     half-precision matrix multiply,” in 2020 IEEE International Parallel and
+     Distributed Processing Symposium (IPDPS), 2020, pp. 634–643.
+[22] W. Sun, A. Li, T. Geng, S. Stuijk, and H. Corporaal, “Dissecting
+     tensor cores via microbenchmarks: Latency, throughput and numeric
+     behaviors,” IEEE TPDS, vol. 34, no. 1, pp. 246–261, 2023.
+[23] M. Khairy, Z. Shen, T. M. Aamodt, and T. G. Rogers, “Accel-sim:
+     An extensible simulation framework for validated gpu modeling,” in
+     2020 ACM/IEEE 47th Annual International Symposium on Computer
+     Architecture (ISCA), 2020, pp. 473–486.
+[24] J. Lee, Y. Ha, S. Lee, J. Woo, J. Lee, H. Jang, and Y. Kim, “Gcom:
+     a detailed gpu core model for accurate analytical modeling of modern
+     gpus,” in Proceedings of the 49th Annual ISCA, ser. ISCA ’22.
+     New York, NY, USA: ACM, 2022, p. 424–436. [Online]. Available:
+     https://doi.org/10.1145/3470496.3527384
+[25] K. N. M. Nguyen, H. D. N. Do, H. T. Le, and T. T. Dao, “Llmperf: Gpu
+     performance modeling meets large language models,” 2025. [Online].
+     Available: https://arxiv.org/abs/2503.11244
+[26] NVIDIA Corporation, Parallel Thread Execution (PTX) ISA, Release
+     8.8, NVIDIA, 2025. [Online]. Available: https://docs.nvidia.com/cuda/
+     pdf/ptx isa 8.8.pdf
+[27] T. T. Dao, J. Kim, S. Seo, B. Egger, and J. Lee, “A performance model
+     for gpus with caches,” IEEE TPDS, vol. 26, no. 7, pp. 1800–1813, 2015.
+[28] NVIDIA Corporation, CUDA Binary Utilities - Instruction Set
+     Reference, NVIDIA, 2025. [Online]. Available: https://docs.nvidia.com/
+     cuda/cuda-binary-utilities/index.html
+[29] ——, NVIDIA TensorRT, https://developer.nvidia.com/tensorrt, 2024,
+     version 10.0. [Online]. Available: https://developer.nvidia.com/tensorrt
+[30] S. Black, S. Biderman, E. Hallahan, Q. Anthony, L. Gao, L. Gold-
+     ing, H. He, C. Leahy, K. McDonell, J. Phang et al., “Gpt-neox-
+     20b: An open-source autoregressive language model,” arXiv preprint
+     arXiv:2204.06745, 2022.
+
