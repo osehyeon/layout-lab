@@ -1,0 +1,471 @@
+  Linear Layouts: Robust Code
+     Generation of Efficient
+  Tensor Computation Using
+Keren Zhou*, Mario Lezcano*, Adam Goucher*, Akhmed Rakhmati, Jeff Niu, Justin Lebar,
+        Pawel Szczerbuk, Peter Bell, Phil Tillet, Thomas Raoux, Zahi Moudallal
+Outline
+
+● Background
+
+● Linear Layouts
+
+● Code Generation
+
+● Experiments
+Background
+Increased Model Complexity and Hardware Diversity
+
+
+
+
+Attention                                                              Nvidia
+
+
+  MoE         Model Complexity Tensor LayoutsHardware Diversity        AMD
+                  Mapping logical tensor (𝑖, 𝑗) to hardware resource
+
+
+ MXFP                                                                  Intel
+Tile-Based Programming Languages
+
+● Users mainly focus on dividing operand tensors into tiles
+    ○    Layout-related code generation are offloaded the compiler
+
+                 z: dim0 x dim1 = x: dim0 x dim1 + y: dim0 x dim1
+
+
+
+    Kernel decorator
+
+ Programming model
+
+        Creation ops
+
+
+        Memory ops
+Tensor Layouts
+                 𝑡: Thread Index
+                 𝑤: Warp Index
+                 𝑟: Register Index
+Triton’s Layout Systems
+                                       Triton Runtime
+
+
+            Triton Language Frontend             Gluon Language Frontend
+
+
+                   Triton Dialect
+                                                Users assign layouts
+
+           Compiler assigns layouts
+
+
+
+                                      TritonGPU Dialect
+
+           The compiler has to handle all layout access &
+                  conversion code generation
+
+                                         LLVM IRs
+The Cost of Heuristics
+
+● Case by case layout implementations             Blocked     MMA
+
+  are
+                                          Dot                             WGMMA
+    ○   Fragile
+
+    ○   Inefficient                     Sliced                            FMA
+
+
+    ○   Fixed
+                                           Tensor Memory      Shared Memory
+● ~12% of Triton bugs are layout bugs
+                                                  Legacy Triton Layouts
+
+                                         Add a new layout requires O(N) conversions
+Linear Layouts
+Motivation: Indices are Bits
+
+
+
+
+    Registers        Threads        Warps      Logical Tensor Locations
+
+
+
+    𝑟! → 0𝑏11      𝑡"# → 0𝑏10011   𝑤$ → 0𝑏10          𝑖$ → 0𝑏10
+                                                      𝑗" → 0𝑏01
+Defining Linear Layouts
+Defining Linear Layouts
+
+
+        𝑊 =𝐿×𝑣
+                                Hardware bits
+                            (register/thread/warp)
+
+
+Logical tensor      The layout matrix
+  coordinates    (binary transformation)
+ (dim0, dim1)
+Defining Linear Layouts
+
+                                   𝑊 =𝐿×𝑣
+
+
+               0                                                                 0
+               0                                                                 1
+               0                                                                 0
+    𝑊 = 0, 1 = 0     𝐿=                                            𝑣 = 2, 0, 0 =
+                                                                                 0
+               1                                                                 0
+               0                                                                 0
+               0                                                                 0
+               0                                                                 0
+
+
+                                𝐿: 𝑅𝑒𝑔 × 𝑇ℎ𝑟 × 𝑊𝑟𝑝 → 𝐹$% ×𝐹$&
+                   is a linear map between labeled vector spaces over 𝐹$
+𝐹! Mathematics
+
+● The field of two elements {0, 1}
+
+● Addition
+
+
+                       𝑎 ⊕ 𝑏 = 𝑎 + 𝑏 𝑚𝑜𝑑 2 = 𝑎 𝑋𝑂𝑅 𝑏
+
+
+● Multiplication
+
+                         𝑎 . 𝑏 = 𝑎 × 𝑏 𝑚𝑜𝑑 2 = 𝑎 𝐴𝑁𝐷 𝑏
+Basic Operators – Composition
+
+● Given vector spaces 𝑈, 𝑉, and 𝑊 over 𝐹! and 𝐿" : 𝑈 → 𝑉 and 𝐿! : 𝑉 → 𝑊, we
+  define their composition as 𝐿! ∘ 𝐿" : 𝑈 → 𝑊
+
+● Example
+
+    ○   𝐿" : 𝑅𝑒𝑔 → 𝑀𝑒𝑚𝑜𝑟𝑦 𝑂𝑓𝑓𝑠𝑒𝑡
+
+    ○   𝐿$ : 𝑀𝑒𝑚𝑜𝑟𝑦 𝑂𝑓𝑓𝑠𝑒𝑡 → 𝐿𝑜𝑔𝑖𝑐𝑎𝑙 𝐶𝑜𝑜𝑟𝑑𝑖𝑛𝑎𝑡𝑒
+
+    ○   𝐿$ ∘ 𝐿" = 𝐿$ 𝐿" = 𝑅𝑒𝑔 → 𝐿𝑜𝑔𝑖𝑐𝑎𝑙 𝐶𝑜𝑜𝑟𝑑𝑖𝑛𝑎𝑡𝑒
+Basic Operators – Product
+● Given two linear layouts 𝐿" : 𝑈" → 𝑉" and 𝐿! : 𝑈! → 𝑉! , we define their product as
+  𝐿" × 𝐿! : 𝑈" × 𝑈! → 𝑉" × 𝑉! , where
+    ○   𝑈" × 𝑈$ =   𝑢" , 𝑢$     𝑢" ∈ 𝑈" , 𝑢$ ∈ 𝑈$ }
+
+    ○   𝑉" × 𝑉$ =   𝑣" , 𝑣$    𝑣" ∈ 𝑉" , 𝑢$ ∈ 𝑉$ }
+                                                                 𝐿"                 𝐿$            r0   r1   r0   r1
+● Example                                                   r0        r1       t0        t1       r2   r3   r2   r3
+                                                                           ×                  →
+    ○   𝐿" : 𝑅𝑒𝑔 → 𝑀𝑒𝑚𝑜𝑟𝑦 𝑂𝑓𝑓𝑠𝑒𝑡                            r2        r3       t2        t3       r0   r1   r0   r1
+
+                                                                                                  r2   r3   r2   r3
+    ○   𝐿$ : 𝑇ℎ𝑟𝑒𝑎𝑑 → 𝑀𝑒𝑚𝑜𝑟𝑦 𝑂𝑓𝑓𝑠𝑒𝑡
+
+    ○   𝐿" ×𝐿$ : 𝑅𝑒𝑔 × 𝑇ℎ𝑟𝑒𝑎𝑑 → 𝑀𝑒𝑚𝑜𝑟𝑦 𝑂𝑓𝑓𝑠𝑒𝑡
+
+                               Intuitively, we can consider it as repeating the
+                              register/offsets mapping across multiple threads
+Basic Operators – Right Inverse
+● A surjective linear layout 𝐿: 𝑈 → 𝑉 over 𝐹! has a right inverse 𝐿# : 𝑉 → 𝑈
+    ○   Surjective: every element in 𝑉 is the image of at least one element from 𝑈
+
+    ○   Injective: No two elements in 𝑈 map to the same element in 𝑉
+
+● Let 𝐿 be a 𝑚 × 𝑛 matrix 𝑀, we define 𝑀 as the solution obtained by Gaussian
+  elimination of 𝑀𝑋 = 𝐼$ , where 𝐼$ is an identity matrix
+● Example
+    ○   𝐿" : 𝑅𝑒𝑔 → 𝑀𝑒𝑚𝑜𝑟𝑦 𝑂𝑓𝑓𝑠𝑒𝑡
+
+    ○   𝐿'"
+         " : 𝑀𝑒𝑚𝑜𝑟𝑦 𝑂𝑓𝑓𝑠𝑒𝑡 → 𝑅𝑒𝑔
+Code Generation
+Broadcasting – Background
+
+
+
+    Tile0   T0     T1   T2   T3   Tensor0   T0      T1   T2      T3
+
+    Tile1   T0     T1   T2   T3   Tensor0   T4      T5   T6      T7
+
+    Tile2   T0     T1   T2   T3   Tensor0   T8      T9   T10     T11
+
+    Tile3   T0     T1   T2   T3   Tensor0   T12    T13   T14     T15
+
+
+                   Tensor                            Tile
+
+
+                 Tile < Tensor                   Tensor < Tile
+Broadcasting – Linear Layouts
+
+● The same values are broadcasted every four threads
+
+                    Reg         Thread
+                                                 Tensor0   T0      T1   T2      T3
+
+                1     0     0   0   0    0       Tensor0   T4      T5   T6      T7
+
+         j      0     0     1   0   0    0       Tensor0   T8      T9   T10     T11
+
+                0     0     0   1   0    0       Tensor0   T12    T13   T14     T15
+
+         i      0     1     0   0   0    0
+                                                                    Tile
+
+             2 x 8 tensor
+Broadcasted             16 𝐿×
+             threads, e.g.,
+        4 registers               𝑟" , 𝑡% = 𝐿× 𝑟" , 𝑡"
+                            threads                             Tensor < Tile
+Layout Conversions – Background
+
+● Given distributed layouts 𝐿& and 𝐿' , we can convert the tensor/hardware
+  resource mapping from 𝐿& to 𝐿' by 𝐿("
+                                     ' ∘ 𝐿&
+
+    ○   𝐿( : 𝑅𝑒𝑔( × 𝑇ℎ𝑟𝑒𝑎𝑑( × 𝑊𝑎𝑟𝑝( → 𝐶𝑜𝑜𝑟𝑑𝑖𝑛𝑎𝑡𝑒
+
+    ○   𝐿) : 𝑅𝑒𝑔) × 𝑇ℎ𝑟𝑒𝑎𝑑) × 𝑊𝑎𝑟𝑝) → 𝐶𝑜𝑜𝑟𝑑𝑖𝑛𝑎𝑡𝑒
+
+    ○   𝐿'"        '"
+         ) ∘ 𝐿( = 𝐿) 𝐿( = 𝑅𝑒𝑔( × 𝑇ℎ𝑟𝑒𝑎𝑑( × 𝑊𝑎𝑟𝑝( → 𝑅𝑒𝑔) × 𝑇ℎ𝑟𝑒𝑎𝑑) × 𝑊𝑎𝑟𝑝)
+Layout Conversions – Background
+
+● First determine an anchor: layout that is optimized by heuristics
+● Forward propagate the layout to uses
+● Backward propagate the layout to defs and rematerialize to resolve conflicts
+
+                                arange
+
+
+                addptr              add              Conflict and rematerialize
+
+                         load             store
+
+
+                         sub       Anchor Layout 𝐿
+Layout Conversions – Intra Thread
+                     ,+-         ,+-
+● If 𝐿)*+
+      &   = 𝐿)*+
+             '   and 𝐿& = 𝐿' , 𝐿("
+                                 ' ∘ 𝐿&
+                                         )*+
+                                             and 𝐿("
+                                                   ' ∘ 𝐿&
+                                                           ,+-
+                                                               are identity
+● We can interchange data elements within each thread by register permutation
+                                 RegA         ThreadA
+
+                             0     1     0     0    0     0    𝑟(* → 𝑟)*   𝑟($ → 𝑟)"
+                   RegB
+                             1     0     0     0    0     0    𝑟(" → 𝑟)$   𝑟(! → 𝑟)!
+
+                             0     0     1     0    0     0
+                             0     0     0     1    0     0
+                 ThreadB                                      Identity
+                             0     0     0     0    1     0
+                             0     0     0     0    0     1
+                           4 registers       16 threads
+Layout Conversions – Intra Warp
+     ,+-     ,+-
+● If 𝐿& = 𝐿' , 𝐿("' ∘ 𝐿&
+                         ,+-
+                             is identity
+● We can interchange data elements within each warp by shuffles
+                                   ThreadA        WarpA
+
+                             0     1    0     0   0    0    𝑡(* → 𝑡)*    𝑡(" → 𝑡)$ 𝑡($ → 𝑡)"   𝑡(! → 𝑡)!
+
+                             1     0    0     0   0    0     𝑡(+ → 𝑡)+   𝑡(- → 𝑡), 𝑡(, → 𝑡)-   𝑡(. → 𝑡).
+                 Thread
+               Each  shuffle
+                       B     is a bijective mapping across threads
+                             0     0    1     0   0    0/   /  𝑡 # → 𝑡 "*
+                                                            𝑡( → 𝑡)      (     )   𝑡("* → 𝑡)# 𝑡("" → 𝑡)""
+                                                                                                 "-   "-
+                             0     0    0     1   0    0    𝑡("$ → 𝑡)"$ 𝑡("! → 𝑡)"+ 𝑡("+ → 𝑡)"! 𝑡( → 𝑡)
+
+                             0     0    0     0   1    0
+                   WarpB                                    Identity
+                             0     0    0     0   0    1
+
+                                 16 threads       4 warps
+Layout Conversions – Intra CTA
+
+● Both 𝐿("
+        ' ∘ 𝐿&
+               )*+ and 𝐿(" ∘ 𝐿 ,+- are not identity
+                        '     &
+
+● Construct a new memory layout 𝐿. : 𝐶𝑜𝑜𝑟𝑑𝑖𝑛𝑖𝑎𝑡𝑒 → 𝑀𝑒𝑚𝑜𝑟𝑦 𝑂𝑓𝑓𝑠𝑒𝑡
+● Construct new layouts 𝐿&. = 𝐿. ∘ 𝐿& , 𝐿'. = 𝐿("   ("
+                                               ' ∘ 𝐿.
+    ○   𝐿(0 : 𝑅𝑒𝑔( × 𝑇ℎ𝑟𝑒𝑎𝑑( × 𝑊𝑎𝑟𝑝( → 𝑀𝑒𝑚𝑜𝑟𝑦 𝑂𝑓𝑓𝑠𝑒𝑡
+    ○   𝐿)0 : 𝑀𝑒𝑚𝑜𝑟𝑦 𝑂𝑓𝑓𝑠𝑒𝑡 → 𝑅𝑒𝑔) × 𝑇ℎ𝑟𝑒𝑎𝑑) × 𝑊𝑎𝑟𝑝)
+
+● Store the tensor with 𝐿&. on the shared memory
+● Load the tensor into 𝐿'. from the shared memory
+● The most general layout conversion mechanism
+Layout Conversions – Bank Conflicts
+
+● The most general layout conversion mechanism is using shared memory
+● Shared memory is divided into segments
+● Each segment consists of multiple banks
+
+
+            Segment 0           Segment 1           Segment 2            Segment 3
+
+
+
+
+            32 banks            32 banks            32 banks             32 banks
+        0   1   2   3   …   0   1   2   3   …   0    1   2   3   …   0    1   2   3   …
+
+
+                                        Bank conflicts happen when threads access
+     Thread 0           Thread 1           the same bank in different segments
+Layout Conversions – Avoid Bank Conflicts
+
+● Model memory offsets as 𝑉𝑒𝑐 × 𝐵𝑎𝑛𝑘 × 𝑆𝑒𝑔𝑚𝑒𝑛𝑡
+● Intuition1: threads access the same segment do not conflict
+● Intuition2: we can find the largest vector and bank subspaces covering all
+   banks used by 𝐿& and 𝐿'
+● Intuition3: the bases in the segment subspace should not overlap with bases
+   in the bank subspace, otherwise we may access the same bank but different
+   segments
+Layout Conversions - Example
+
+
+
+
+                 Please refer to Figure 5 in the paper
+Other Use Cases
+
+● Software emulation of MXFP types
+    ○   Linear layouts-based layout conversion
+
+● Tile-based load/store (e.g., ldmatrix/stmatrix)
+    ○   Linear layout division operations
+
+● Contiguous elements
+    ○   Largest 𝑢 such that 𝐿'"
+                             123 𝑖 = 𝑖 for any 𝑖 ≤ 𝑢
+
+● Generalized vectorization
+    ○   Permute register values to get a larger number of contiguous elements
+Experiments
+Setup
+
+● Compare legacy Triton vs Triton-Linear
+
+● Microbenchmarks show benefits of linear layout in specific codegen path
+
+● Real benchmarks measure the overall speedups
+
+
+            Platform        GPU Model         Memory            Notes
+            RTX4090       NVIDIA RTX4090   24GB GDDR6X      Consumer GPU
+             GH200         NVIDIA GH200     80GB HBM2e      Data center GPU
+             MI250          AMD MI250        64GB HBM2      Data center GPU
+Case 1: Mixed Precision Pass Rate
+
+● Using linear layout’s automatic code generation instead of heuristic-based
+  code conversions
+
+ Data Type      Triton     Triton-Linear   Data Type     Triton     Triton-Linear
+  i16/f16       32/64         64/64         i16/f32       32/32        32/32
+  i16/f64       32/32         32/32          i16/f8       36/96        96/96
+  i32/f16       32/32         32/32         i32/f64       16/32        32/32
+   i32/f8       18/48         48/48         i64/f16       32/32        32/32
+  i64/f32       16/32         32/32          i64/f8       18/48        48/48
+   i8/f16       36/96         96/96          i8/f32       18/48        48/48
+   i8/f64       18/48         48/48          i8/f8       30/144       144/144
+Case 2: Layout Conversion and Gather Speedups
+
+● Using warp shuffle to communicate within warps without going through
+  shared memory
+
+
+
+
+            Warp Shuffle                            Convert Layout
+Real Benchmarks
+
+● 21 benchmarks and 265 cases in TritonBench
+    ○   GH200: up to 1.40x speedup
+
+    ○   RTX4090: up to 1.37x speedup
+
+    ○   MI250x: up to 1.03x speedup
+Conclusions
+More Readings
+
+● Lei’s blog posts
+    ○   https://www.lei.chat/posts/triton-linear-layout-concept/
+    ○   https://www.lei.chat/posts/triton-bespoke-layouts/
+
+● Justin’s blog post
+    ○   https://jlebar.com
+
+● Paper
+    ○   https://arxiv.org/abs/2505.23819
+    ○   Figure 4 and Figure 5 have been fixed in the Arxiv version
+    ○   Unfortunately it’s not easy to update the paper in ACM DL
+Thaihoa’s Layout Visualizer
+
+● https://deep-learning-profiling-tools.github.io/linear-layout-viz/
+Code
+
+● Triton bespoke layout definition
+    ○   https://github.com/triton-
+
+        lang/triton/blob/main/include/triton/Dialect/TritonGPU/IR/TritonGPUAttrDefs.td
+
+● Linear layout operations
+    ○   https://github.com/triton-lang/triton/blob/main/include/triton/Tools/LinearLayout.h
+
+● Linear layout Python interface
+    ○   https://github.com/triton-lang/triton/blob/main/python/src/linear_layout.cc
+Comparison with CuTe
+
+      Aspect                    Linear Layouts                         CuTe
+
+       Goal           Integrated into a compiler framework    Manual layout description
+
+    Math model              Linear algebra over F2                Category theory
+
+ Layout conversion          Automatically generated            No general mechanism
+
+     Swizzling        Inherently defined layout formulation       A separate step
+
+Dimension semantics      Labeled (e.g., Reg, Thr, Wrp)               Unlabeled
+Takeaways
+
+● Linear layouts bridges complex hardware components and logical tensors
+  through theoretical foundation and implementation
+
+● Family of linear layouts facilitates robust code generation and enables key
+  optimizations
+
+● The primary limitation of linear layouts is the restriction to power-of-two shapes
+
+    ○   But can be mitigated by defining larger tensors and masking out-of-boundary elements
+Related Work
+
+● A. Edelman, S. Heller, and S. Lennart Johnsson. Index transformation
+  algorithms in a linear algebra framework. IEEE Transactions on Parallel and
+  Distributed Systems, 5(12):1302–1309, 1994. doi:10.1109/71.334903.
+● T.H. Cormen. Fast permuting on disk arrays. Journal of Parallel and
+  Distributed Computing, 17(1):41–57, 1993. doi:10.1006/jpdc.1993.1004.
+● Mathis Bouverot-Dupuis and Mary Sheeran. Efficient gpu implementation of
+  affine index permutations on arrays. In Proceedings of the 11th ACM
+  SIGPLAN International Workshop on Functional High-Performance and
+  Numerical Computing, FHPNC 2023, page 15â˘ A¸S28, New York, NY, USA,
+  2023. Association for Computing Machinery. doi:10.1145/3609024.3609411.
+

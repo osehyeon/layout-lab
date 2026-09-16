@@ -193,6 +193,70 @@ lane 번호 5비트를 상위 2비트 `a`(0~3)와 하위 3비트 `b`(0~7)로 나
 
 `[4, 8, 16, 1, 2]` 는 여기 없다. **이름 붙일 배치가 없으니 컴파일러가 할 수 있는 일은 SMEM으로 실체화하는 것뿐이다** — 아무것도 움직일 필요가 없었는데 `st.shared` + 배리어 + `ld.shared` 가 생긴다. PR이 말한 *"효율적으로 표현할 수 없다"* 가 이것이다.
 
+#### 그때는 실제로 어떻게 계산됐나
+
+"SMEM으로 실체화" 가 코드에서 어디서 일어나는지를 PR #3794 병합 직전 커밋 [`f6c3318e`](https://github.com/triton-lang/triton/commit/f6c3318e4d70d697b5af4672babb4ac4ca61bd63) (2024-05-08) 에서 따라갔다. 세 연산 중 **앞의 둘은 그때도 공짜**였고, 갈리는 곳은 마지막 `reshape` 하나다.
+
+![LinearLayout 이전 — 같은 세 연산이 어떻게 계산됐나](figures/reshape-transpose-reshape-before-ll.svg)
+
+| 단계 | 그때의 처리 | 근거 (커밋 `f6c3318e`) |
+|---|---|---|
+| ① `x (32,)` | `#blocked<threadsPerWarp=[32], order=[0]>` — default 배치 | `getDefaultBlockedEncoding` (`lib/Dialect/TritonGPU/IR/Dialect.cpp`) |
+| ② `reshape → (4,8)` | src 가 default 면 dst 도 default 로 **이름만** 바꾼다. lowering 은 값을 풀어 다시 묶는 것뿐 — **명령 0개** | `inferReshapeOpNoReorderEncoding` 의 "default → default encoding is always a nop" / `ReshapeOpConversion` (`ViewOpToLLVM.cpp`) |
+| ③ `trans → (8,4)` | `sizePerThread`·`threadsPerWarp`·`warpsPerCTA` 를 치환하고 `order` 를 `[1,0] → [0,1]` 로 — 역시 **이름만, 명령 0개** | `inferTransOpEncoding` blocked 가지 / `TransOpConversion` 주석 *"just a renaming of the registers"* |
+| ④ `reshape → (32,)` | **실패.** `order=[0,1]` 인 `(8,4)` 의 두 축을 하나로 합치려면 두 축이 *"physically consecutive"* 여야 하는데 아니다 → 추론이 `failure()` 를 낸다 | `inferReshapeOpNoReorderEncoding` 의 `isConsecutive(reverse(gather(srcInvOrder, srcDims)))` 검사 |
+| ④′ 끼워 넣기 | Triton → TritonGPU 변환이 `reshape` 의 입력을 default 배치로 맞추려고 **`ttg.convert_layout #blocked<order=[0,1]> → #blocked<order=[1,0]>`** 을 삽입한다. `RemoveLayoutConversions` 도 이 op 을 못 없앤다 — 앞뒤 `reshape` 어느 쪽으로 밀어도 같은 검사에 걸린다 | `TritonGPUConversion.cpp` 의 `addTargetMaterialization` → `ConvertLayoutOp` / `Transforms/Utility.cpp` 의 `inferSrcEncoding`·`inferDstEncoding` 이 같은 함수를 부른다 |
+| ④″ lowering | blocked → blocked 는 전용 경로가 없어 **범용 SMEM 왕복**으로 떨어진다. lane 마다 자기 자리에 `st.shared` → `bar.sync` → default 자리에서 `ld.shared`. scratch 는 `8×(4+1 pad)` = **160 B (계산값, f32)** | `lowerDistributedToDistributed` + `processReplica` (`lib/Conversion/TritonGPUToLLVM/ConvertLayoutOpToLLVM.cpp`), pad 는 `getScratchConfigForCvtLayout` (`lib/Analysis/Allocation.cpp`) |
+
+결과가 흥미롭다. **옛 경로는 배치를 default `[1, 2, 4, 8, 16]` 로 되돌리기 위해 값을 움직였고**, LinearLayout 경로는 값을 그대로 두고 배치 이름을 `[4, 8, 16, 1, 2]` 로 바꾼다. 둘이 계산한 텐서 `w` 는 같다 — 검증 스크립트가 두 lane 대응표를 대조해 확인한다. 차이는 lane 당 **`st.shared` 1 + `bar.sync` 1 + `ld.shared` 1 + SMEM 160 B** 대 **명령 0개**다.
+
+**이 이동에 SMEM 이 정말 필요했나.** 하드웨어 기준으로는 아니다. 값을 lane 사이로 옮기는 길은 셋이고, 그중 추가 메모리가 필요한 것은 워프 경계를 넘는 하나뿐이다.
+
+![값을 lane 사이로 옮기는 세 가지 길](figures/convert-layout-hw-paths.svg)
+
+| 남는 축 | 하드웨어 수단 | 추가 메모리 | 이전 (`f6c3318e`) | 이후 (LinearLayout) |
+|---|---|---|---|---|
+| `register` 만 | 같은 lane 안에서 SSA 값 재배열 | 없음 | SMEM 왕복 | 명령 0개 (`transferWithinThread`) |
+| `lane` | `shfl.sync` — PTX ISA §9.7.10.6 *"Exchange register data between threads of a warp"* | 없음 | SMEM 왕복 | `shfl` (`cvtNeedsWarpShuffle` → `transferWithinWarp`) |
+| `warp` / `block` | SMEM / DSMEM + `bar.sync` (§9.7.15.1) | **필요** | SMEM 왕복 | SMEM 왕복 + 배리어 |
+
+이전 열이 전부 같다는 것이 요점이다. 다른 워프의 레지스터를 읽는 명령이 ISA 에 없으니 셋째 줄은 하드웨어가 강제하는 것이지만, 옛 컴파일러는 첫째·둘째 줄도 셋째 줄로 처리했다. 확인한 커밋에서 `convert_layout` lowering 이 `shfl` 을 쓰는 곳은 MMAv3 → 8-bit dot operand 변환 하나뿐이고, blocked → blocked 를 포함한 나머지 distributed → distributed 는 전부 SMEM 경로였다. 우리 예의 이동은 워프 하나 안의 lane 순열 (`lane j ← lane 8·(j%4) + j/4`) 이라 하드웨어 최소 비용은 lane 당 `shfl.sync.idx` 1개, 메모리 0 B 다 `(계산값)`. 즉 옛 경로는 **표현의 한계가 불필요한 이동을 만들고, lowering 의 단순함이 그 이동을 가장 비싼 길로 보낸** 두 겹의 손해다. 지금 Triton 은 `minimalCvtLayout` 으로 항등인 축을 걷어낸 뒤 남는 축으로 이 셋을 구분한다 (HEAD `570e5b4d`, 2026-09-15, `ConvertLayoutOpToLLVM.cpp`) — 그리고 이 예는 변환 자체가 생기지 않으니 표의 어느 줄에도 들어가지 않는다.
+
+**세 길은 하드웨어에 원래부터 있었다. 생긴 것은 컴파일러의 지도다.** `shfl` 은 Kepler 부터 있는 명령이고, 같은 lane 안의 재배열은 명령조차 아니다. 옛 컴파일러가 이 길들을 못 쓴 이유는 이름 있는 배치 쌍을 받아서 두 배치가 어느 축에서 다른지 일반적으로 판정할 수단이 없었기 때문이다. LinearLayout 이 그 판정을 주었고, 판정이 생기자 싼 길부터 차례로 열렸다.
+
+![하드웨어의 길은 그대로, 컴파일러의 지도가 생겼다](figures/hw-roads-compiler-map.svg)
+
+| | 시점 | PR | 열린 길 |
+|---|---|---|---|
+| | 2024-05-08 | [#3794](https://github.com/triton-lang/triton/pull/3794) | LinearLayout 도입 — 판정의 재료. 이때는 `convert_layout` lowering 이 아직 옛 코드 |
+| A | 2024-06-13 | [#4125](https://github.com/triton-lang/triton/pull/4125) "Use LLs for register-to-register convert-layout ops" | `register` 축만 남는 변환 → ① 명령 0개 (`transferWithinThread`) |
+| B | 2024-07-29 | [#4383](https://github.com/triton-lang/triton/pull/4383) | distributed → distributed 의 SMEM 경로 자체도 LinearLayout 으로 주소 계산 |
+| C | 2025-01-15 | [#5419](https://github.com/triton-lang/triton/pull/5419) "Implement layout conversion within warps with shuffle idx" | `lane` 까지 남는 변환 → ② `shfl.idx`. PR 본문: *"for all distributed layouts, we can implement this transformation using a single index shuffle (mask + permute)"* |
+| C′ | 2025-01-10 | [#5553](https://github.com/triton-lang/triton/pull/5553) | NVIDIA 백엔드에서 쌍마다 있던 decomposition 함수 전부 제거 |
+| D·E | 2025-07 ~ 08 | [#7558](https://github.com/triton-lang/triton/pull/7558), [#7809](https://github.com/triton-lang/triton/pull/7809), [#7810](https://github.com/triton-lang/triton/pull/7810) | 워프 안 알고리즘 개선 (swap / ship), byte permute, `warp.sync` 활용 |
+| F·G | 2026-09-08 | [#11646](https://github.com/triton-lang/triton/pull/11646) "Allow warpshuffles when warp and block can read off broadcasted copies" | `warp`/`block` 축이 남아도 broadcast 된 복사본을 읽을 수 있으면 ② 로 — ③ 의 일부가 조건부로 내려옴 |
+
+즉 앞 표의 "이전" 열이 전부 SMEM 인 것은 2024-05 시점의 사실이고, `lane` 줄이 일반 경로로 열린 것은 그로부터 8개월 뒤다. 가장 최근 항목은 원래 SMEM 이 필요하던 `warp` 축 변환 일부까지 `shfl` 로 내리는 것이라, 셋째 줄도 조건부로 둘째 줄로 내려오는 중이다. 이 이력은 §3 의 `invertAndCompose` 수정 이력과 같은 방식으로 커밋 제목·본문에서 확인했고, 각 PR 의 lowering 이 실제로 내는 명령 수는 측정하지 않았다.
+
+**그런데 `(register, lane, warp, block)` 과 `(offset, block)` 은 다른 주소 체계 아닌가.** 다르다. LinearLayout 이 두 체계를 하나로 합친 것이 아니라, **둘이 가리키는 목적지가 같다**는 점을 쓴다. 레지스터 쪽 layout 도 SMEM 쪽 layout 도 “하드웨어 좌표 → 텐서 인덱스” 함수이고, 입력 축 이름만 다르다. 텐서 인덱스가 공통 좌표계라서 `sharedLayout⁻¹ ∘ regLayout` 이 항상 정의되고, 그 결과가 “이 lane 의 이 register 는 offset 몇 번에 써야 하나”다. `MemoryOpToLLVM.cpp` 의 `invertAndComposeLocal(sharedLayout, regLayout)` 이 이 식이고, 출력이 곧 `st.shared` / `ld.shared` 의 주소다.
+
+![(register, lane, warp, block) 과 (offset, block) 이 이어지는 자리](figures/rf-smem-coordinate-systems.svg)
+
+| | 레지스터 쪽 입력 축 | SMEM 쪽 입력 축 | 대응 |
+|---|---|---|---|
+| 클러스터 안 CTA | `block` | `block` | **같은 수준.** 두 layout 모두 `combineCtaCgaWithShape(ctaLayout, cgaLayout, shape)` 가 같은 CGA layout 으로 이 축을 붙인다 (`LinearLayoutConversions.cpp`) |
+| CTA 안 | `warp` → `lane` → `register` | `offset` | 셋이 하나로 접힌다. SMEM 에는 “어느 스레드” 라는 개념이 없고 타일 안 위치만 있다 |
+
+합성 `cvt` 는 `block → block` 부분과 `register + lane + warp → offset` 부분으로 갈라진다. `block → block` 이 항등이면 각 CTA 가 자기 SMEM 만 쓰고, 항등이 아니면 다른 CTA 의 SMEM 을 읽어야 하므로 DSMEM 경로로 간다 — `lowerLocalLdSt` 의 `crossCTA = !cvt.isIdentityOnOutDim(block)` 이 그 판정이고 그때만 `getClusterCTAId` 를 부른다 (`Utility.cpp`). 이것이 가능한 조건은 양쪽이 모두 F₂ 위에서 선형이라는 것이다. 스위즐은 offset 비트 하나가 인덱스 비트 여럿을 뒤집는 것이라 여전히 선형이고, 반대로 GMEM 은 stride 가 런타임 값이라 선형이 아니어서 이 그림 밖에 있다 (위 stride 절).
+
+우리 예로 확인하면, `regLayout` 이 lane 기저 `[1, 2, 4, 8, 16]` 이고 SMEM 이 `(8,4)` row-major 면 `cvt` 는 `lane j → offset j`, offset 비트 2 가 인덱스 비트 0 도 뒤집는 스위즐이면 `lane j → offset j ^ ((j>>2)&1)` = `0 1 2 3 5 4 7 6 …` 이다. 연속 offset 의 길이가 벡터화 폭, 같은 뱅크 비트로 모이는 lane 수가 뱅크 충돌이라 기저에서 바로 읽힌다.
+
+> 직접 확인: [`examples/rf_smem_compose.py`](examples/rf_smem_compose.py) — 두 layout 을 기저 목록으로 적고 `shared⁻¹ ∘ reg` 를 전수 조사로 합성한다. 클러스터 예에서 `block → block` 이 항등으로 나오는 것도 본다.
+
+두 가지 주의. 이 표는 **소스 판독**이고 당시 빌드를 실행한 것이 아니다 (`미실행`). 그리고 `convert_layout` lowering 이 **(src, dst) 쌍마다 분기**했다는 것도 이 커밋에서 그대로 보인다 — `mma → mma`, `mma → dot_operand`, `shared → dot_operand` (MMAv1 / MMAv2 / FMA 별 파일) 는 전용 경로, 나머지 distributed → distributed 는 전부 위의 범용 SMEM 경로다. `blocked → blocked` 인 이 예가 그 "나머지" 다. 이 구조가 §7 의 "N² 에서 1로" 의 N² 쪽이다.
+
+> 직접 확인: [`examples/reshape_transpose_reshape_before_ll.py`](examples/reshape_transpose_reshape_before_ll.py) (GPU 불필요) — 위 커밋의 blocked 빌더·`trans` 추론·`reshape` 추론·SMEM 왕복을 파이썬으로 옮겨 그림의 숫자를 전부 만들고, LinearLayout 경로와 결과가 같은지 대조한다.
+
 LinearLayout에서는 `[4, 8, 16, 1, 2]` 가 그냥 유효한 기저 목록이다. `reshape` 는 비트 재묶음, `trans` 는 치환 행렬이고 **둘 다 연산이 닫혀 있어** 결과가 항상 유효한 LinearLayout이다. 이름을 붙이고 **명령 0개**로 끝난다.
 
 > 직접 확인: [`examples/reshape_transpose_reshape.py`](examples/reshape_transpose_reshape.py) (GPU 불필요). `tl.trans` 한 번만이라면 `blocked` 의 `order` 를 뒤집어 표현되므로 문제가 없다 — **reshape가 양쪽에 붙어 축 경계를 가로질러야** 비로소 표현 밖으로 나간다. PR 본문이 "some reshape + transpose + reshape combinations"라고 쓴 이유다.
